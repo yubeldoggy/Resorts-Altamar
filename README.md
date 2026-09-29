@@ -1,6 +1,6 @@
 # Resorts Altamar - prototipo de reservas
 
-Aplicación local para crear, listar y cancelar reservas, con inicio de sesión por RUT, registro de clientes y tres roles. Incluye 20 hoteles en 4 regiones, con 5 habitaciones de demostración por hotel. Los datos se guardan en `altamar.sqlite3`, creado al iniciar.
+Aplicación local para crear, listar, modificar fechas y cancelar reservas, con check-in/check-out y sugerencias de hoteles alternativos, con inicio de sesión por RUT, registro de clientes y tres roles. Incluye 20 hoteles en 4 regiones, con 5 habitaciones de demostración por hotel. Los datos se guardan en `altamar.sqlite3`, creado al iniciar.
 
 ## Abrir
 
@@ -33,9 +33,9 @@ Las cuentas de recepción y gerente no se crean desde la aplicación.
 
 ## Acceso y roles
 
-- **Cliente:** crea reservas a su nombre y solo ve y cancela las suyas.
-- **Recepción:** registra clientes, crea reservas para clientes con cuenta o huéspedes sin cuenta, y ve y cancela todas.
-- **Gerente:** ve y cancela todas las reservas y revisa la **actividad de seguridad**. No crea reservas.
+- **Cliente:** crea reservas a su nombre y solo ve, modifica fechas y cancela las suyas mientras estén confirmadas.
+- **Recepción:** registra clientes, crea reservas para clientes con cuenta o huéspedes sin cuenta, y ve, modifica fechas y cancela reservas confirmadas. Registra check-in y check-out.
+- **Gerente:** ve todas las reservas, modifica fechas y cancela las confirmadas, registra check-in/check-out y revisa la **actividad de seguridad**. No crea reservas.
 
 Los permisos se validan en el servidor, no solo en la pantalla.
 
@@ -80,4 +80,16 @@ Ejecuta las pruebas con `python -m unittest -v`. Usan una base temporal y no mod
 
 ## Alcance
 
-Prototipo basado en el caso Resorts Altamar. Incluye inicio de sesión, registro de clientes, tres roles, validación de RUT, contraseñas con hash, bloqueo por intentos y bitácora de seguridad. No incluye servicios adicionales, check-in/check-out, modificación de reservas, sugerencias de hoteles alternativos, adaptación por hotel físico ni facturación. Las cuentas de prueba son públicas en este README: sirven solo para la demostración. No está publicada en Internet y no representa el cumplimiento completo de la rúbrica EV03.
+Prototipo basado en el caso Resorts Altamar. Incluye inicio de sesión, registro de clientes, tres roles, validación de RUT, contraseñas con hash, bloqueo por intentos y bitácora de seguridad. Incluye modificación de fechas, sugerencias regionales y check-in/check-out simples. No incluye servicios adicionales, adaptación por hotel físico ni facturación. Las cuentas de prueba son públicas en este README: sirven solo para la demostración. No está publicada en Internet y no representa el cumplimiento completo de la rúbrica EV03.
+
+
+## Reservas y recepción: demostración simple
+
+- **Modificar fechas:** botón en las reservas confirmadas. Mantiene el hotel y el huésped, y asigna una habitación libre. Si las fechas no tienen cupo, no se pierde la reserva original.
+- **Hoteles alternativos:** al intentar reservar sin cupo, muestra hoteles disponibles de la misma región. Selecciona uno y vuelve a presionar Crear reserva. En una modificación fallida se muestran como información; cambiar de hotel requiere una nueva reserva.
+- **Check-in:** recepción y gerencia pasan una reserva Confirmada a Alojado. Para probarlo, crea una reserva con llegada hoy y salida mañana. No permite ingresar antes de la llegada ni ocupar una habitación cuyo huésped aún no ha salido.
+- **Check-out:** pasa de Alojado a Finalizada y libera los cupos. Es un cambio de estado de demostración, sin cobros ni factura; puede probarse inmediatamente después del check-in.
+- Una reserva alojada, finalizada o cancelada no se puede modificar ni cancelar. Los nuevos movimientos quedan en la bitácora.
+- Las estadísticas cuentan Confirmadas y Alojados como reservas activas; las Finalizadas no se cuentan como Canceladas. Hay filtros para cada estado.
+
+No necesitas borrar la base de datos para usar estas funciones. Detén el servidor con Ctrl+C, vuelve a ejecutar INICIAR.bat y recarga el navegador.

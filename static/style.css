@@ -186,3 +186,7 @@ footer{font-size:12px;color:var(--muted);text-align:center;padding-top:8px}
   .reservation{flex-direction:column;gap:10px}
   .reservation-side{flex-direction:row;align-items:center;width:100%}
 }
+
+/* Controles simples de reservas y recepción. */
+.segmented{flex-wrap:wrap}.reservation-side{gap:8px;flex-wrap:wrap}.alternative{margin:6px 6px 0 0}
+

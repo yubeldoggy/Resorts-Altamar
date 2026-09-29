@@ -146,6 +146,7 @@
             <p class="hint" id="stay-hint">Se asignará una habitación disponible. Cada hotel tiene 5 habitaciones de demostración.</p>
             <button class="primary" type="submit" id="save">Crear reserva <span aria-hidden="true">→</span></button>
             <p class="alert" id="message" role="status" aria-live="polite"></p>
+            <div id="alternatives" aria-live="polite"></div>
           </form>
         </section>
 
@@ -194,6 +195,8 @@
             <legend class="sr-only">Filtrar por estado</legend>
             <label><input type="radio" name="filter" value="all" checked><span>Todas</span></label>
             <label><input type="radio" name="filter" value="Confirmada"><span>Confirmadas</span></label>
+            <label><input type="radio" name="filter" value="Alojado"><span>Alojados</span></label>
+            <label><input type="radio" name="filter" value="Finalizada"><span>Finalizadas</span></label>
             <label><input type="radio" name="filter" value="Cancelada"><span>Canceladas</span></label>
           </fieldset>
           <div class="search" id="search-box">
@@ -235,5 +238,22 @@
   </form>
 </dialog>
 
+<dialog id="dates-dialog" aria-labelledby="dates-title">
+  <form id="dates-form">
+    <h2 id="dates-title">Modificar fechas</h2>
+    <p id="dates-summary" class="muted"></p>
+    <input type="hidden" name="id" id="dates-id">
+    <div class="dates">
+      <div class="field"><label for="edit-arrival">Llegada</label><input id="edit-arrival" name="arrival" type="date" required></div>
+      <div class="field"><label for="edit-departure">Salida</label><input id="edit-departure" name="departure" type="date" required></div>
+    </div>
+    <p class="alert" id="dates-message" role="status"></p>
+    <div id="dates-alternatives"></div>
+    <div class="dialog-actions">
+      <button type="button" id="close-dates" class="secondary">Volver</button>
+      <button type="submit" class="primary">Guardar fechas</button>
+    </div>
+  </form>
+</dialog>
 </body>
 </html>

@@ -302,8 +302,85 @@ def list_audit(user):
 
 # ---------- Reservas ----------
 
+class NoAvailability(ValueError):
+    def __init__(self, alternatives):
+        super().__init__('No quedan habitaciones para esas fechas. Prueba otro hotel de la misma región.')
+        self.alternatives = alternatives
+
+
+def available_room(db, hotel, arrival, departure):
+    occupied = {r[0] for r in db.execute(
+        'SELECT DISTINCT room FROM nights WHERE hotel_id=? AND night>=? AND night<?',
+        (hotel, arrival, departure))}
+    return next((n for n in range(1, 6) if n not in occupied), None)
+
+
+def alternative_hotels(db, hotel, arrival, departure):
+    return [dict(h) for h in db.execute('''SELECT id,name,region FROM hotels
+        WHERE region=(SELECT region FROM hotels WHERE id=?) AND id<>? ORDER BY id''', (hotel, hotel))
+        if available_room(db, h['id'], arrival, departure) is not None]
+
+
+def reservation_for_user(db, rid, user):
+    row = db.execute('SELECT * FROM reservations WHERE id=?', (rid,)).fetchone()
+    if not row or (user['role'] == 'cliente' and row['user_id'] != user['id']):
+        raise ValueError('La reserva no existe.')
+    return row
+
+
+def modify_dates(rid, data, user):
+    try:
+        arrival, departure = date.fromisoformat(data['arrival']), date.fromisoformat(data['departure'])
+    except (KeyError, ValueError, TypeError):
+        raise ValueError('Selecciona fechas válidas.')
+    if arrival < date.today() or not 1 <= (departure - arrival).days <= 60:
+        raise ValueError('La llegada debe ser hoy o después y la estadía debe durar entre 1 y 60 noches.')
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = reservation_for_user(db, rid, user)
+        if row['status'] != 'Confirmada':
+            raise ValueError('Solo se pueden modificar reservas confirmadas.')
+        # Si no hay cupo, el rollback conserva la reserva y sus noches originales.
+        db.execute('DELETE FROM nights WHERE reservation_id=?', (rid,))
+        room = available_room(db, row['hotel_id'], arrival.isoformat(), departure.isoformat())
+        if room is None:
+            raise NoAvailability(alternative_hotels(db, row['hotel_id'], arrival.isoformat(), departure.isoformat()))
+        db.execute('UPDATE reservations SET arrival=?,departure=?,room=? WHERE id=?',
+                   (arrival.isoformat(), departure.isoformat(), room, rid))
+        db.executemany('INSERT INTO nights VALUES(?,?,?,?)',
+                       [(row['hotel_id'], room, (arrival + timedelta(days=i)).isoformat(), rid)
+                        for i in range((departure - arrival).days)])
+        audit(db, 'fechas_modificadas', user['id'], f'ALT-{rid:04d}')
+    return {'message': 'Fechas actualizadas. Habitación ' + str(room) + '.'}
+
+
+def reception_action(rid, action, user):
+    if user['role'] not in ('recepcion', 'gerente'):
+        raise AccessError('Solo el personal puede registrar entradas y salidas.')
+    transitions = {'checkin': ('Confirmada', 'Alojado'), 'checkout': ('Alojado', 'Finalizada')}
+    if action not in transitions:
+        raise ValueError('Operación no válida.')
+    expected, new_status = transitions[action]
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = reservation_for_user(db, rid, user)
+        if row['status'] != expected:
+            raise ValueError('El estado actual no permite esta operación.')
+        if action == 'checkin':
+            if not row['arrival'] <= date.today().isoformat() < row['departure']:
+                raise ValueError('El check-in debe realizarse durante las fechas de la estadía.')
+            if db.execute("SELECT 1 FROM reservations WHERE hotel_id=? AND room=? AND status='Alojado'",
+                          (row['hotel_id'], row['room'])).fetchone():
+                raise ValueError('La habitación aún tiene un huésped alojado. Registra su salida primero.')
+        db.execute('UPDATE reservations SET status=? WHERE id=?', (new_status, rid))
+        if action == 'checkout':
+            db.execute('DELETE FROM nights WHERE reservation_id=?', (rid,))
+        audit(db, action, user['id'], f'ALT-{rid:04d}')
+    return {'message': 'Check-in registrado.' if action == 'checkin' else 'Check-out registrado. Habitación liberada.'}
+
+
 def list_reservations(user):
-    query = '''SELECT r.id, r.guest, r.arrival, r.departure, r.room, r.status, r.user_id,
+    query = '''SELECT r.id, r.hotel_id, r.guest, r.arrival, r.departure, r.room, r.status, r.user_id,
         h.name hotel, h.region FROM reservations r JOIN hotels h ON h.id=r.hotel_id'''
     params = ()
     if user['role'] == 'cliente':
@@ -344,12 +421,9 @@ def create_reservation(data, user):
         hotel_row = db.execute('SELECT name FROM hotels WHERE id=?', (hotel,)).fetchone()
         if not hotel_row:
             raise ValueError('El hotel no existe.')
-        occupied = {r[0] for r in db.execute(
-            'SELECT DISTINCT room FROM nights WHERE hotel_id=? AND night>=? AND night<?',
-            (hotel, arrival.isoformat(), departure.isoformat()))}
-        room = next((n for n in range(1, 6) if n not in occupied), None)
+        room = available_room(db, hotel, arrival.isoformat(), departure.isoformat())
         if room is None:
-            raise ValueError('No quedan habitaciones en ese hotel para esas fechas. Prueba otro hotel o rango de fechas.')
+            raise NoAvailability(alternative_hotels(db, hotel, arrival.isoformat(), departure.isoformat()))
         rid = db.execute('''INSERT INTO reservations(hotel_id,guest,arrival,departure,room,user_id,created_by)
             VALUES(?,?,?,?,?,?,?)''', (hotel, guest, arrival.isoformat(), departure.isoformat(),
                                        room, owner, user['id'])).lastrowid
@@ -363,12 +437,9 @@ def create_reservation(data, user):
 def cancel_reservation(rid, user):
     with connection() as db:
         db.execute('BEGIN IMMEDIATE')
-        row = db.execute('SELECT status, user_id FROM reservations WHERE id=?', (rid,)).fetchone()
-        # Un cliente no puede ver ni cancelar reservas ajenas.
-        if not row or (user['role'] == 'cliente' and row['user_id'] != user['id']):
-            raise ValueError('La reserva no existe.')
-        if row['status'] == 'Cancelada':
-            raise ValueError('La reserva ya está cancelada.')
+        row = reservation_for_user(db, rid, user)
+        if row['status'] != 'Confirmada':
+            raise ValueError('Solo se pueden cancelar reservas confirmadas.')
         db.execute("UPDATE reservations SET status='Cancelada' WHERE id=?", (rid,))
         db.execute('DELETE FROM nights WHERE reservation_id=?', (rid,))
         audit(db, 'reserva_cancelada', user['id'], f'ALT-{rid:04d}')
@@ -477,6 +548,10 @@ class Handler(BaseHTTPRequestHandler):
                 result = create_reservation(data, user)
             elif self.path == '/api/cancel':
                 result = cancel_reservation(int(data.get('id', 0)), user)
+            elif self.path == '/api/modify-dates':
+                result = modify_dates(int(data.get('id', 0)), data, user)
+            elif self.path in ('/api/checkin', '/api/checkout'):
+                result = reception_action(int(data.get('id', 0)), self.path.rsplit('/', 1)[1], user)
             elif self.path == '/api/clients':
                 _, client = register_client(data, creator=user)
                 result = {'message': f'Cliente {client["name"]} registrado.', 'client': client}
@@ -485,6 +560,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, result)
         except AccessError as error:
             self.reply(error.status, {'error': str(error)})
+        except NoAvailability as error:
+            self.reply(409, {'error': str(error), 'alternatives': error.alternatives})
         except (ValueError, TypeError, UnicodeDecodeError) as error:
             self.reply(400, {'error': str(error)})
         except sqlite3.Error:

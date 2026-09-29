@@ -13,6 +13,7 @@ const AUDIT_NAMES = {
   inicio_sesion: 'Inicio de sesión', cierre_sesion: 'Cierre de sesión', acceso_fallido: 'Acceso fallido',
   acceso_bloqueado: 'Acceso bloqueado', registro_cliente: 'Registro de cliente', cliente_creado: 'Cliente creado por recepción',
   reserva_creada: 'Reserva creada', reserva_cancelada: 'Reserva cancelada',
+  fechas_modificadas: 'Fechas modificadas', checkin: 'Check-in', checkout: 'Check-out',
 };
 const state = {user: null, rows: []};
 
@@ -26,7 +27,7 @@ async function api(path, data){
   try { result = await response.json(); } catch { /* respuesta sin JSON */ }
   // Sesión vencida o ausente: se vuelve a la pantalla de acceso.
   if (response.status === 401 && !['login','me','register'].includes(path)) showAuth(result.error);
-  if (!response.ok) throw new Error(result.error || 'No se pudo completar la operación.');
+  if (!response.ok) {const error=new Error(result.error || 'No se pudo completar la operación.');error.alternatives=result.alternatives;throw error;}
   return result;
 }
 
@@ -83,6 +84,7 @@ $$('[role=tab]').forEach(tab=>{
 
 /* ---------- Vistas ---------- */
 function showAuth(text=''){
+  $('#dates-dialog').close();
   state.user=null;
   $('#app-view').hidden=true;$('#auth-view').hidden=false;
   if(text){selectTab($('#tab-login'));message('#login-message',text,'error');}
@@ -123,9 +125,9 @@ async function showApp(user){
 async function refresh(){state.rows=await api('reservations');render();}
 function render(){
   const rows=state.rows;
-  const active=rows.filter(r=>r.status==='Confirmada');
+  const active=rows.filter(r=>['Confirmada','Alojado'].includes(r.status));
   $('#stat-active').textContent=active.length;
-  $('#stat-cancelled').textContent=rows.length-active.length;
+  $('#stat-cancelled').textContent=rows.filter(r=>r.status==='Cancelada').length;
   $('#stat-nights').textContent=active.reduce((sum,r)=>sum+nightsBetween(r.arrival,r.departure),0);
   const filter=$('input[name=filter]:checked').value;
   const term=$('#search-box').hidden?'':$('#search').value.trim().toLowerCase();
@@ -143,7 +145,9 @@ function render(){
       </div>
       <div class="reservation-side">
         <span class="badge${cancelled?' cancelled':''}">${escapeHTML(r.status)}</span>
-        ${cancelled?'':`<button type="button" class="cancel" data-id="${r.id}">Cancelar</button>`}
+        ${r.status==='Confirmada'?`<button type="button" class="secondary" data-action="dates" data-id="${r.id}">Modificar fechas</button><button type="button" class="cancel" data-action="cancel" data-id="${r.id}">Cancelar</button>`:''}
+        ${state.user.role!=='cliente'&&r.status==='Confirmada'?`<button type="button" class="secondary" data-action="checkin" data-id="${r.id}">Check-in</button>`:''}
+        ${state.user.role!=='cliente'&&r.status==='Alojado'?`<button type="button" class="secondary" data-action="checkout" data-id="${r.id}">Check-out</button>`:''}
       </div>
     </article>`;}).join('');
 }
@@ -213,9 +217,10 @@ $('#logout').addEventListener('click',async()=>{
 });
 $('#reservation-form').addEventListener('submit',async event=>{
   event.preventDefault();message('#message');
+  $('#alternatives').innerHTML='';
   await busy($('#save'),async()=>{
     try{const result=await api('reservations',Object.fromEntries(new FormData(event.target)));message('#message',result.message);resetGuest(event.target);await refresh();}
-    catch(error){message('#message',error.message,'error');}
+    catch(error){message('#message',error.message,'error');showAlternatives('#alternatives',error.alternatives,true);}
   });
 });
 $('#client-form').addEventListener('submit',async event=>{
@@ -240,14 +245,46 @@ function confirmCancel(r){
 $('#reservations').addEventListener('click',async event=>{
   const button=event.target.closest('[data-id]');if(!button)return;
   const row=state.rows.find(r=>String(r.id)===button.dataset.id);
-  if(!row||!await confirmCancel(row))return;
+  if(!row)return;
+  const action=button.dataset.action;
+  if(action==='dates'){openDates(row);return;}
+  if(action==='cancel'&&!await confirmCancel(row))return;
   await busy(button,async()=>{
-    try{const result=await api('cancel',{id:row.id});message('#list-message',result.message);await refresh();if(state.user?.role==='gerente')await loadAudit();}
+    try{const result=await api(action,{id:row.id});message('#list-message',result.message);await refresh();if(state.user?.role==='gerente')await loadAudit();}
     catch(error){message('#list-message',error.message,'error');}
   });
 });
 $('#refresh').addEventListener('click',()=>refresh().catch(error=>message('#list-message',error.message,'error')));
 $('#refresh-audit').addEventListener('click',()=>loadAudit().catch(error=>message('#list-message',error.message,'error')));
+
+/* ---------- Fechas y alternativas: solo los controles necesarios ---------- */
+function showAlternatives(target, hotels, selectable=false){
+  if(!hotels)return;
+  $(target).innerHTML=hotels.length?`<p class="hint">Hoteles con cupo en la misma región:</p>${hotels.map(h=>selectable?`<button type="button" class="secondary alternative" data-hotel="${h.id}">${escapeHTML(h.name)} · ${escapeHTML(h.region)}</button>`:`<p class="hint">${escapeHTML(h.name)} · ${escapeHTML(h.region)}</p>`).join('')}${selectable?'':'<p class="hint">Tu reserva original se conserva. Para cambiar de hotel, crea otra reserva y luego cancela la anterior.</p>'}`:'<p class="hint">Tampoco hay cupos en otros hoteles de la región. Prueba otras fechas.</p>';
+}
+$('#alternatives').addEventListener('click',event=>{
+  const button=event.target.closest('[data-hotel]');if(!button)return;
+  $('#hotels').value=button.dataset.hotel;$('#alternatives').innerHTML='';
+  message('#message','Hotel alternativo seleccionado. Presiona Crear reserva para confirmar.');
+});
+function openDates(row){
+  $('#dates-id').value=row.id;
+  $('#dates-summary').textContent=`ALT-${String(row.id).padStart(4,'0')} · ${row.hotel}`;
+  $('#edit-arrival').min=localDate();$('#edit-arrival').value=row.arrival;
+  $('#edit-departure').min=localDate(1);$('#edit-departure').value=row.departure;
+  message('#dates-message');$('#dates-alternatives').innerHTML='';$('#dates-dialog').showModal();
+}
+$('#close-dates').addEventListener('click',()=>$('#dates-dialog').close());
+$('#dates-form').addEventListener('submit',async event=>{
+  event.preventDefault();message('#dates-message');$('#dates-alternatives').innerHTML='';
+  await busy(event.target.querySelector('[type=submit]'),async()=>{
+    try{
+      const result=await api('modify-dates',Object.fromEntries(new FormData(event.target)));
+      $('#dates-dialog').close();message('#list-message',result.message);await refresh();
+      if(state.user?.role==='gerente')await loadAudit();
+    }catch(error){message('#dates-message',error.message,'error');showAlternatives('#dates-alternatives',error.alternatives);}
+  });
+});
 
 /* ---------- Inicio ---------- */
 (async()=>{

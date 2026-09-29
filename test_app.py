@@ -70,6 +70,85 @@ class ReservationTests(BaseTest):
                 app.create_reservation(data, self.users['recepcion'])
 
 
+class ReceptionTests(BaseTest):
+    def test_modify_dates_replaces_nights(self):
+        rid = app.create_reservation(self.data, self.users['cliente'])['id']
+        changed = {**self.data, 'departure': (date.today() + timedelta(days=3)).isoformat()}
+        app.modify_dates(rid, changed, self.users['cliente'])
+        with app.connection() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM nights WHERE reservation_id=?', (rid,)).fetchone()[0], 3)
+        self.assertEqual(app.list_reservations(self.users['cliente'])[0]['departure'], changed['departure'])
+
+    def test_failed_modification_preserves_original(self):
+        rid = app.create_reservation(self.data, self.users['cliente'])['id']
+        original = app.list_reservations(self.users['cliente'])[0]
+        future = {**self.data, 'arrival': self.data['departure'],
+                  'departure': (date.today() + timedelta(days=4)).isoformat()}
+        for _ in range(5):
+            app.create_reservation(future, self.users['recepcion'])
+        with self.assertRaises(app.NoAvailability):
+            app.modify_dates(rid, future, self.users['cliente'])
+        self.assertEqual(app.list_reservations(self.users['cliente'])[0], original)
+        with app.connection() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM nights WHERE reservation_id=?', (rid,)).fetchone()[0], 2)
+
+    def test_alternatives_are_available_and_same_region(self):
+        for hotel in (1, 2):
+            for _ in range(5):
+                app.create_reservation({**self.data, 'hotel_id': hotel}, self.users['recepcion'])
+        with self.assertRaises(app.NoAvailability) as error:
+            app.create_reservation(self.data, self.users['cliente'])
+        self.assertEqual({h['id'] for h in error.exception.alternatives}, {3, 4, 5})
+        self.assertTrue(all(h['region'] == 'Norte' for h in error.exception.alternatives))
+
+    def test_no_regional_alternative(self):
+        for hotel in range(1, 6):
+            for _ in range(5):
+                app.create_reservation({**self.data, 'hotel_id': hotel}, self.users['recepcion'])
+        with self.assertRaises(app.NoAvailability) as error:
+            app.create_reservation(self.data, self.users['cliente'])
+        self.assertEqual(error.exception.alternatives, [])
+
+    def test_reception_cycle_and_closed_reservations(self):
+        rid = app.create_reservation(self.data, self.users['cliente'])['id']
+        staff = self.users['recepcion']
+        with self.assertRaises(ValueError):
+            app.reception_action(rid, 'checkout', staff)
+        app.reception_action(rid, 'checkin', staff)
+        self.assertEqual(app.list_reservations(staff)[0]['status'], 'Alojado')
+        with self.assertRaises(ValueError):
+            app.cancel_reservation(rid, staff)
+        with self.assertRaises(ValueError):
+            app.modify_dates(rid, self.data, staff)
+        app.reception_action(rid, 'checkout', staff)
+        self.assertEqual(app.list_reservations(staff)[0]['status'], 'Finalizada')
+        with app.connection() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM nights').fetchone()[0], 0)
+        with self.assertRaises(ValueError):
+            app.reception_action(rid, 'checkin', staff)
+
+    def test_client_permissions(self):
+        rid = app.create_reservation(self.data, self.users['recepcion'])['id']
+        with self.assertRaises(ValueError):
+            app.modify_dates(rid, self.data, self.users['cliente'])
+        own = app.create_reservation(self.data, self.users['cliente'])['id']
+        for action in ('checkin', 'checkout'):
+            with self.assertRaises(app.AccessError):
+                app.reception_action(own, action, self.users['cliente'])
+
+    def test_future_checkin_rejected(self):
+        future = {**self.data, 'arrival': (date.today() + timedelta(days=1)).isoformat()}
+        rid = app.create_reservation(future, self.users['cliente'])['id']
+        with self.assertRaises(ValueError):
+            app.reception_action(rid, 'checkin', self.users['recepcion'])
+
+    def test_cancelled_reservation_cannot_be_modified(self):
+        rid = app.create_reservation(self.data, self.users['cliente'])['id']
+        app.cancel_reservation(rid, self.users['cliente'])
+        with self.assertRaises(ValueError):
+            app.modify_dates(rid, self.data, self.users['cliente'])
+
+
 class AccessTests(BaseTest):
     def test_rut_validation(self):
         for valid in ['11.111.111-1', '11111111-1', '111111111', '12.345.678-5', ' 22.222.222-2 ']:
