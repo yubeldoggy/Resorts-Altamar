@@ -69,6 +69,41 @@ class ReservationTests(BaseTest):
             with self.assertRaises(ValueError):
                 app.create_reservation(data, self.users['recepcion'])
 
+    def test_services_and_receipt_totals(self):
+        rid = app.create_reservation({**self.data, 'services': [
+            {'id': 'spa', 'quantity': 2}, {'id': 'tour', 'quantity': 1},
+        ]}, self.users['recepcion'])['id']
+        reservation = app.list_reservations(self.users['recepcion'])[0]
+        self.assertEqual(reservation['id'], rid)
+        self.assertEqual(reservation['nights'], 2)
+        self.assertEqual(reservation['lodging_total'], 160_000)
+        self.assertEqual(reservation['services_total'], 120_000)
+        self.assertEqual(reservation['total'], 280_000)
+        self.assertEqual({service['id'] for service in reservation['services']}, {'spa', 'tour'})
+
+    def test_services_can_be_replaced_and_cleared(self):
+        rid = app.create_reservation(self.data, self.users['recepcion'])['id']
+        result = app.update_reservation_services(
+            rid, [{'id': 'room', 'quantity': 2}], self.users['recepcion'])
+        self.assertEqual(result['total'], 196_000)
+        self.assertEqual(app.list_reservations(self.users['recepcion'])[0]['services_total'], 36_000)
+        app.update_reservation_services(rid, [], self.users['recepcion'])
+        self.assertEqual(app.list_reservations(self.users['recepcion'])[0]['services'], [])
+
+    def test_services_validate_quantities_and_permissions(self):
+        rid = app.create_reservation(self.data, self.users['recepcion'])['id']
+        for items in [None, [{'id': 'unknown', 'quantity': 1}],
+                      [{'id': 'spa', 'quantity': 11}], [{'id': 'spa', 'quantity': True}]]:
+            with self.assertRaises(ValueError):
+                app.update_reservation_services(rid, items, self.users['recepcion'])
+        with self.assertRaises(app.AccessError):
+            app.update_reservation_services(rid, [], self.users['gerente'])
+        with self.assertRaises(ValueError):
+            app.update_reservation_services(rid, [], self.users['cliente'])
+        app.cancel_reservation(rid, self.users['recepcion'])
+        with self.assertRaises(ValueError):
+            app.update_reservation_services(rid, [], self.users['recepcion'])
+
 
 class AccessTests(BaseTest):
     def test_rut_validation(self):

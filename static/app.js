@@ -12,9 +12,10 @@ const ROLE_INTRO = {
 const AUDIT_NAMES = {
   inicio_sesion: 'Inicio de sesión', cierre_sesion: 'Cierre de sesión', acceso_fallido: 'Acceso fallido',
   acceso_bloqueado: 'Acceso bloqueado', registro_cliente: 'Registro de cliente', cliente_creado: 'Cliente creado por recepción',
-  reserva_creada: 'Reserva creada', reserva_cancelada: 'Reserva cancelada',
+  reserva_creada: 'Reserva creada', reserva_cancelada: 'Reserva cancelada', servicios_actualizados: 'Servicios actualizados',
 };
-const state = {user: null, rows: []};
+const state = {user: null, rows: [], services: []};
+const money = value => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(value);
 
 function localDate(offset=0){const d=new Date();d.setDate(d.getDate()+offset);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function message(target, text='', type='ok'){const el=$(target);el.textContent=text;el.dataset.type=type;}
@@ -109,7 +110,9 @@ async function showApp(user){
   $('#arrival').min=localDate();$('#arrival').value=localDate();$('#departure').min=localDate(1);$('#departure').value=localDate(1);
   updateStayHint();
   try{
-    const hotels=await api('hotels');
+    const [hotels,services]=await Promise.all([api('hotels'),api('services')]);
+    state.services=services;
+    renderServicePicker('#booking-service-options',services,[]);
     const regions=[...new Set(hotels.map(h=>h.region))];
     $('#hotels').innerHTML=regions.map(r=>`<optgroup label="${escapeHTML(r)}">${hotels.filter(h=>h.region===r).map(h=>`<option value="${h.id}">${escapeHTML(h.name)}</option>`).join('')}</optgroup>`).join('');
     const tasks=[refresh()];
@@ -140,10 +143,14 @@ function render(){
         <div class="reservation-title"><h3>${escapeHTML(r.guest)}</h3><span class="code">ALT-${String(r.id).padStart(4,'0')}</span></div>
         <p class="reservation-place">${escapeHTML(r.hotel)} <span>· ${escapeHTML(r.region)} · Habitación ${r.room}</span></p>
         <p class="reservation-dates"><span>${dateText(r.arrival)}</span><span aria-hidden="true">→</span><span>${dateText(r.departure)}</span><span class="nights">${nights} ${nights===1?'noche':'noches'}</span></p>
+        <p class="reservation-total">Alojamiento ${money(r.lodging_total)} · Servicios ${money(r.services_total)} · <strong>Total ${money(r.total)}</strong></p>
       </div>
       <div class="reservation-side">
         <span class="badge${cancelled?' cancelled':''}">${escapeHTML(r.status)}</span>
-        ${cancelled?'':`<button type="button" class="cancel" data-id="${r.id}">Cancelar</button>`}
+        <div class="reservation-actions">
+          <button type="button" class="text-action" data-action="receipt" data-id="${r.id}">Comprobante</button>
+          ${cancelled?'':`<button type="button" class="text-action" data-action="services" data-id="${r.id}">Servicios</button><button type="button" class="cancel" data-action="cancel" data-id="${r.id}">Cancelar</button>`}
+        </div>
       </div>
     </article>`;}).join('');
 }
@@ -182,6 +189,35 @@ function resetGuest(form){
   syncGuestField();updateStayHint();
 }
 
+function renderServicePicker(target,services,selected){
+  const quantities=Object.fromEntries(selected.map(service=>[service.id,service.quantity]));
+  $(target).innerHTML=services.map(service=>`<label class="service-option">
+    <span>${escapeHTML(service.name)} <small>${money(service.unit_price)} c/u</small></span>
+    <input type="number" min="0" max="10" step="1" value="${quantities[service.id]||0}" data-service-id="${escapeHTML(service.id)}" aria-label="Cantidad de ${escapeHTML(service.name)}">
+  </label>`).join('');
+}
+function selectedServices(target){
+  return [...$(target).querySelectorAll('[data-service-id]')]
+    .map(input=>({id:input.dataset.serviceId,quantity:Number(input.value)})).filter(item=>item.quantity>0);
+}
+function showReceipt(reservation){
+  const lines=[{name:`Alojamiento · ${reservation.nights} ${reservation.nights===1?'noche':'noches'}`,
+    quantity:reservation.nights,unit_price:reservation.nightly_rate,total:reservation.lodging_total},
+    ...reservation.services.map(service=>({...service,total:service.quantity*service.unit_price}))];
+  $('#receipt-content').innerHTML=`<p class="receipt-meta">ALT-${String(reservation.id).padStart(4,'0')} · ${escapeHTML(reservation.guest)}<br>${escapeHTML(reservation.hotel)}<br>${dateText(reservation.arrival)} → ${dateText(reservation.departure)}</p>
+    <div class="receipt-lines">${lines.map(line=>`<div><span>${escapeHTML(line.name)}${line.quantity>1?` × ${line.quantity}`:''}</span><strong>${money(line.total)}</strong></div>`).join('')}
+    <div class="receipt-total"><span>Total (CLP)</span><strong>${money(reservation.total)}</strong></div></div>
+    <p class="hint">Comprobante informativo. No se realizó ningún pago.</p>`;
+  $('#receipt-dialog').showModal();
+}
+function showServicesEditor(reservation){
+  $('#services-reservation').textContent=`ALT-${String(reservation.id).padStart(4,'0')} · ${reservation.guest}`;
+  renderServicePicker('#services-editor',state.services,reservation.services);
+  $('#services-dialog').dataset.reservationId=reservation.id;
+  message('#services-message');
+  $('#services-dialog').showModal();
+}
+
 /* ---------- Bitácora (gerente) ---------- */
 async function loadAudit(){
   const rows=await api('audit');
@@ -214,7 +250,7 @@ $('#logout').addEventListener('click',async()=>{
 $('#reservation-form').addEventListener('submit',async event=>{
   event.preventDefault();message('#message');
   await busy($('#save'),async()=>{
-    try{const result=await api('reservations',Object.fromEntries(new FormData(event.target)));message('#message',result.message);resetGuest(event.target);await refresh();}
+    try{const data=Object.fromEntries(new FormData(event.target));data.services=selectedServices('#booking-service-options');const result=await api('reservations',data);message('#message',result.message);resetGuest(event.target);renderServicePicker('#booking-service-options',state.services,[]);await refresh();}
     catch(error){message('#message',error.message,'error');}
   });
 });
@@ -240,10 +276,23 @@ function confirmCancel(r){
 $('#reservations').addEventListener('click',async event=>{
   const button=event.target.closest('[data-id]');if(!button)return;
   const row=state.rows.find(r=>String(r.id)===button.dataset.id);
-  if(!row||!await confirmCancel(row))return;
+  if(!row)return;
+  if(button.dataset.action==='receipt'){showReceipt(row);return;}
+  if(button.dataset.action==='services'){showServicesEditor(row);return;}
+  if(button.dataset.action!=='cancel'||!await confirmCancel(row))return;
   await busy(button,async()=>{
     try{const result=await api('cancel',{id:row.id});message('#list-message',result.message);await refresh();if(state.user?.role==='gerente')await loadAudit();}
     catch(error){message('#list-message',error.message,'error');}
+  });
+});
+$('#services-close').addEventListener('click',()=>$('#services-dialog').close());
+$('#services-form').addEventListener('submit',async event=>{
+  event.preventDefault();
+  await busy($('#services-save'),async()=>{
+    try{
+      const result=await api('reservation-services',{id:Number($('#services-dialog').dataset.reservationId),services:selectedServices('#services-editor')});
+      message('#list-message',result.message);$('#services-dialog').close();await refresh();
+    }catch(error){message('#services-message',error.message,'error');}
   });
 });
 $('#refresh').addEventListener('click',()=>refresh().catch(error=>message('#list-message',error.message,'error')));

@@ -144,6 +144,11 @@
               <div class="field"><label for="departure">Salida</label><input name="departure" id="departure" type="date" required></div>
             </div>
             <p class="hint" id="stay-hint">Se asignará una habitación disponible. Cada hotel tiene 5 habitaciones de demostración.</p>
+            <fieldset class="service-picker" id="booking-services">
+              <legend>Servicios adicionales</legend>
+              <p class="hint">Precios por servicio en pesos chilenos.</p>
+              <div id="booking-service-options"></div>
+            </fieldset>
             <button class="primary" type="submit" id="save">Crear reserva <span aria-hidden="true">→</span></button>
             <p class="alert" id="message" role="status" aria-live="polite"></p>
           </form>
@@ -232,6 +237,30 @@
       <button value="no" class="secondary" autofocus>Volver</button>
       <button value="yes" class="danger">Sí, cancelar</button>
     </div>
+  </form>
+</dialog>
+
+<dialog id="services-dialog" aria-labelledby="services-title">
+  <form id="services-form">
+    <h2 id="services-title">Servicios de la reserva</h2>
+    <p class="muted" id="services-reservation"></p>
+    <fieldset class="service-picker">
+      <legend>Servicios adicionales</legend>
+      <div id="services-editor"></div>
+    </fieldset>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" id="services-close">Volver</button>
+      <button type="submit" class="primary" id="services-save">Guardar servicios</button>
+    </div>
+    <p class="alert" id="services-message" role="status" aria-live="polite"></p>
+  </form>
+</dialog>
+
+<dialog id="receipt-dialog" aria-labelledby="receipt-title">
+  <form method="dialog">
+    <h2 id="receipt-title">Comprobante de estadía</h2>
+    <div id="receipt-content"></div>
+    <div class="dialog-actions"><button value="close" class="secondary">Cerrar</button></div>
   </form>
 </dialog>
 

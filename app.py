@@ -33,6 +33,13 @@ TEST_ACCOUNTS = [
     ('22.013.635-3', 'Damián Sandoval', 'recepcion', 'gNvFAxfNppb4'),
     ('16.091.233-2', 'Eduardo Salinas', 'gerente', 'w3TJXFFSRXCT'),
 ]
+NIGHTLY_RATE = 80_000
+SERVICES = (
+    {'id': 'spa', 'name': 'Spa', 'unit_price': 35_000},
+    {'id': 'tour', 'name': 'Tour', 'unit_price': 50_000},
+    {'id': 'room', 'name': 'Servicio a la habitación', 'unit_price': 18_000},
+)
+SERVICES_BY_ID = {service['id']: service for service in SERVICES}
 
 
 class AccessError(Exception):
@@ -182,6 +189,11 @@ def initialize():
                 hotel_id INTEGER NOT NULL REFERENCES hotels(id), room INTEGER NOT NULL,
                 night TEXT NOT NULL, reservation_id INTEGER NOT NULL REFERENCES reservations(id),
                 PRIMARY KEY(hotel_id, room, night));
+            CREATE TABLE IF NOT EXISTS reservation_services(
+                reservation_id INTEGER NOT NULL REFERENCES reservations(id),
+                service_id TEXT NOT NULL, service_name TEXT NOT NULL, unit_price INTEGER NOT NULL,
+                quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 10),
+                PRIMARY KEY(reservation_id, service_id));
         ''')
         # Bases creadas por versiones anteriores: se agregan las columnas nuevas.
         columns = {r[1] for r in db.execute('PRAGMA table_info(reservations)')}
@@ -302,6 +314,35 @@ def list_audit(user):
 
 # ---------- Reservas ----------
 
+def normalize_services(items):
+    if not isinstance(items, list) or len(items) > len(SERVICES):
+        raise ValueError('Selecciona servicios válidos.')
+    normalized, seen = [], set()
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError('Selecciona servicios válidos.')
+        service_id, quantity = item.get('id'), item.get('quantity')
+        if (service_id not in SERVICES_BY_ID or service_id in seen or isinstance(quantity, bool)
+                or not isinstance(quantity, int) or not 0 <= quantity <= 10):
+            raise ValueError('Revisa las cantidades de los servicios (máximo 10 por tipo).')
+        seen.add(service_id)
+        if quantity:
+            normalized.append((SERVICES_BY_ID[service_id], quantity))
+    return normalized
+
+
+def save_reservation_services(db, reservation_id, services):
+    db.execute('DELETE FROM reservation_services WHERE reservation_id=?', (reservation_id,))
+    db.executemany('''INSERT INTO reservation_services
+        (reservation_id,service_id,service_name,unit_price,quantity) VALUES(?,?,?,?,?)''',
+                   [(reservation_id, service['id'], service['name'], service['unit_price'], quantity)
+                    for service, quantity in services])
+
+
+def service_catalog():
+    return [dict(service) for service in SERVICES]
+
+
 def list_reservations(user):
     query = '''SELECT r.id, r.guest, r.arrival, r.departure, r.room, r.status, r.user_id,
         h.name hotel, h.region FROM reservations r JOIN hotels h ON h.id=r.hotel_id'''
@@ -309,12 +350,35 @@ def list_reservations(user):
     if user['role'] == 'cliente':
         query, params = query + ' WHERE r.user_id=?', (user['id'],)
     with connection() as db:
-        return [dict(r) for r in db.execute(query + ' ORDER BY r.id DESC', params)]
+        rows = [dict(r) for r in db.execute(query + ' ORDER BY r.id DESC', params)]
+        if not rows:
+            return rows
+        ids = [row['id'] for row in rows]
+        placeholders = ','.join('?' for _ in ids)
+        services = db.execute(f'''SELECT reservation_id,service_id,name,unit_price,quantity FROM (
+            SELECT reservation_id,service_id,service_name name,unit_price,quantity
+            FROM reservation_services WHERE reservation_id IN ({placeholders}))
+            ORDER BY reservation_id,service_id''', ids).fetchall()
+    services_by_reservation = {}
+    for service in services:
+        services_by_reservation.setdefault(service['reservation_id'], []).append({
+            'id': service['service_id'], 'name': service['name'],
+            'unit_price': service['unit_price'], 'quantity': service['quantity'],
+        })
+    for row in rows:
+        row['nights'] = (date.fromisoformat(row['departure']) - date.fromisoformat(row['arrival'])).days
+        row['nightly_rate'] = NIGHTLY_RATE
+        row['lodging_total'] = row['nights'] * NIGHTLY_RATE
+        row['services'] = services_by_reservation.get(row['id'], [])
+        row['services_total'] = sum(item['unit_price'] * item['quantity'] for item in row['services'])
+        row['total'] = row['lodging_total'] + row['services_total']
+    return rows
 
 
 def create_reservation(data, user):
     if user['role'] not in ('cliente', 'recepcion'):
         raise AccessError('Tu rol no permite crear reservas.')
+    services = normalize_services(data.get('services', []))
     client_id, guest = None, None
     if user['role'] == 'cliente':
         guest = user['name']  # El cliente siempre reserva a su nombre.
@@ -356,8 +420,28 @@ def create_reservation(data, user):
         db.executemany('INSERT INTO nights VALUES(?,?,?,?)',
                        [(hotel, room, (arrival + timedelta(days=i)).isoformat(), rid)
                         for i in range((departure - arrival).days)])
+        save_reservation_services(db, rid, services)
         audit(db, 'reserva_creada', user['id'], f'ALT-{rid:04d} · {hotel_row["name"]} · {guest}')
         return {'message': f'Reserva ALT-{rid:04d} creada. Habitación {room}.', 'id': rid}
+
+
+def update_reservation_services(rid, items, user):
+    if user['role'] not in ('cliente', 'recepcion'):
+        raise AccessError('Tu rol no permite modificar servicios.')
+    services = normalize_services(items)
+    with connection() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('''SELECT user_id,arrival,departure,status FROM reservations WHERE id=?''', (rid,)).fetchone()
+        if not row or (user['role'] == 'cliente' and row['user_id'] != user['id']):
+            raise ValueError('La reserva no existe.')
+        if row['status'] == 'Cancelada':
+            raise ValueError('No se pueden modificar servicios de una reserva cancelada.')
+        save_reservation_services(db, rid, services)
+        audit(db, 'servicios_actualizados', user['id'], f'ALT-{rid:04d}')
+        nights = (date.fromisoformat(row['departure']) - date.fromisoformat(row['arrival'])).days
+        total = nights * NIGHTLY_RATE + sum(service['unit_price'] * quantity
+                                           for service, quantity in services)
+    return {'message': 'Servicios de la reserva actualizados.', 'total': total}
 
 
 def cancel_reservation(rid, user):
@@ -432,6 +516,8 @@ class Handler(BaseHTTPRequestHandler):
                     rows = [dict(r) for r in db.execute('SELECT * FROM hotels ORDER BY id')]
             elif path == '/api/reservations':
                 rows = list_reservations(user)
+            elif path == '/api/services':
+                rows = service_catalog()
             elif path == '/api/clients':
                 rows = list_clients(user)
             elif path == '/api/audit':
@@ -475,6 +561,8 @@ class Handler(BaseHTTPRequestHandler):
                 raise AccessError('Tu sesión expiró. Inicia sesión nuevamente.', 401)
             if self.path == '/api/reservations':
                 result = create_reservation(data, user)
+            elif self.path == '/api/reservation-services':
+                result = update_reservation_services(int(data.get('id', 0)), data.get('services'), user)
             elif self.path == '/api/cancel':
                 result = cancel_reservation(int(data.get('id', 0)), user)
             elif self.path == '/api/clients':

@@ -103,6 +103,13 @@ button:disabled{opacity:.6;cursor:progress}
 .card > .muted{margin-top:4px}
 .card form{display:grid;gap:16px;margin-top:20px}
 .dates{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.service-picker{display:grid;gap:8px;margin:0;padding:12px;border:1px solid var(--line);border-radius:var(--radius-sm)}
+.service-picker legend{padding:0 5px;font-size:13px;font-weight:600;color:var(--ink-soft)}
+.service-picker .hint{margin-top:-5px}
+.service-option{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}
+.service-option span{min-width:0}
+.service-option small{display:block;color:var(--muted);font-size:11px;font-weight:400}
+.service-option input{width:68px;padding:7px 8px}
 details summary{list-style:none;cursor:pointer;display:grid;gap:4px;position:relative;padding-right:28px;border-radius:6px}
 details summary::-webkit-details-marker{display:none}
 details summary::after{content:'+';position:absolute;right:0;top:-2px;font-size:22px;color:var(--brand-3)}
@@ -130,6 +137,11 @@ details[open] summary::after{content:'–'}
 .reservation-dates{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .nights{margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--gold-soft);color:var(--warn);font-weight:600}
 .reservation-side{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:10px}
+.reservation-total{font-size:12px;color:var(--muted)}
+.reservation-total strong{color:var(--brand)}
+.reservation-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
+.text-action{padding:5px 0;background:none;color:var(--brand-2);font-size:12px;font-weight:500}
+.text-action:hover,.cancel:hover{text-decoration:underline}
 .reservation.is-cancelled h3,.reservation.is-cancelled .reservation-place{color:var(--muted)}
 .badge{padding:3px 9px;border-radius:999px;font-size:11px;font-weight:600;background:var(--ok-bg);color:var(--ok);white-space:nowrap}
 .badge.cancelled{background:var(--danger-bg);color:var(--danger)}
@@ -155,6 +167,11 @@ dialog::backdrop{background:rgb(18 40 36 / .45)}
 dialog form{display:grid;gap:12px;padding:26px}
 dialog h2{font:22px var(--serif);color:var(--brand)}
 .dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}
+.dialog-actions .primary{width:auto}
+.receipt-meta{font-size:13px;line-height:1.8;color:var(--ink-soft)}
+.receipt-lines{display:grid;gap:10px;margin:16px 0}
+.receipt-lines>div{display:flex;justify-content:space-between;gap:14px;font-size:13px}
+.receipt-total{padding-top:10px;border-top:1px solid var(--line);font-weight:700;color:var(--brand)}
 
 footer{font-size:12px;color:var(--muted);text-align:center;padding-top:8px}
 
