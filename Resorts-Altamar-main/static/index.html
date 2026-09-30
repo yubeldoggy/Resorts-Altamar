@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Altamar · Reservas</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+
+<!-- ============ Acceso ============ -->
+<div class="auth" id="auth-view" hidden>
+  <aside class="auth-brand">
+    <div class="brand"><span class="logo" aria-hidden="true">A</span><div>altamar<small>RESORTS &amp; HOTELES</small></div></div>
+    <div class="auth-pitch">
+      <p class="eyebrow light">Cadena de resorts en Chile</p>
+      <p class="pitch">Tu próxima estadía, de Arica a Punta Arenas.</p>
+      <ul class="facts">
+        <li><strong>20</strong><span>hoteles</span></li>
+        <li><strong>4</strong><span>regiones</span></li>
+        <li><strong>1</strong><span>registro central</span></li>
+      </ul>
+    </div>
+    <p class="auth-note">Prototipo académico · Los datos se guardan solo en este equipo.</p>
+  </aside>
+
+  <main class="auth-panel">
+    <div class="auth-card">
+      <div class="tabs" role="tablist" aria-label="Acceso">
+        <button type="button" role="tab" id="tab-login" aria-selected="true" aria-controls="login-form">Ingresar</button>
+        <button type="button" role="tab" id="tab-register" aria-selected="false" aria-controls="register-form" tabindex="-1">Crear cuenta</button>
+      </div>
+
+      <form id="login-form" role="tabpanel" aria-labelledby="tab-login">
+        <h1>Bienvenido de vuelta</h1>
+        <p class="muted">Ingresa con tu RUT y tu contraseña.</p>
+        <div class="field">
+          <label for="login-rut">RUT</label>
+          <input id="login-rut" name="rut" class="rut-input" required maxlength="12" placeholder="12.345.678-5"
+                 autocomplete="username" autocapitalize="characters" spellcheck="false" enterkeyhint="next"
+                 aria-errormessage="login-rut-error">
+          <p class="field-error" id="login-rut-error">Revisa el RUT: el dígito verificador no coincide.</p>
+        </div>
+        <div class="field">
+          <label for="current-password">Contraseña</label>
+          <div class="password">
+            <input id="current-password" name="password" type="password" required maxlength="128"
+                   autocomplete="current-password" enterkeyhint="done">
+            <button type="button" class="reveal" aria-controls="current-password" aria-pressed="false">Mostrar</button>
+          </div>
+        </div>
+        <button class="primary" type="submit">Ingresar <span aria-hidden="true">→</span></button>
+        <p class="alert" id="login-message" role="status" aria-live="polite"></p>
+        <p class="hint center">¿Primera vez? Crea tu cuenta de huésped en la pestaña <strong>Crear cuenta</strong>. Las cuentas de prueba están en README.md.</p>
+      </form>
+
+      <form id="register-form" role="tabpanel" aria-labelledby="tab-register" hidden>
+        <h1>Crea tu cuenta</h1>
+        <p class="muted">Cuenta de huésped para reservar y gestionar tus estadías. El personal del hotel recibe su cuenta desde la administración.</p>
+        <div class="field">
+          <label for="register-rut">RUT</label>
+          <input id="register-rut" name="rut" class="rut-input" required maxlength="12" placeholder="12.345.678-5"
+                 autocomplete="username" autocapitalize="characters" spellcheck="false" enterkeyhint="next"
+                 aria-errormessage="register-rut-error">
+          <p class="field-error" id="register-rut-error">Revisa el RUT: el dígito verificador no coincide.</p>
+        </div>
+        <div class="field">
+          <label for="register-name">Nombre completo</label>
+          <input id="register-name" name="name" required minlength="2" maxlength="80" autocomplete="name"
+                 enterkeyhint="next" placeholder="Nombre y apellido">
+        </div>
+        <div class="field">
+          <label for="new-password">Contraseña</label>
+          <ul class="rules" id="new-password-rules" aria-live="polite">
+            <li data-rule="length">Entre 8 y 64 caracteres</li>
+            <li data-rule="letter">Al menos una letra</li>
+            <li data-rule="digit">Al menos un número</li>
+          </ul>
+          <div class="password">
+            <input id="new-password" name="password" type="password" required minlength="8" maxlength="64"
+                   pattern="(?=.*\p{L})(?=.*\d).{8,64}" autocomplete="new-password" enterkeyhint="done"
+                   aria-describedby="new-password-rules" class="password-rules-input">
+            <button type="button" class="reveal" aria-controls="new-password" aria-pressed="false">Mostrar</button>
+          </div>
+        </div>
+        <button class="primary" type="submit">Crear cuenta <span aria-hidden="true">→</span></button>
+        <p class="alert" id="register-message" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </main>
+</div>
+
+<!-- ============ Aplicación ============ -->
+<div id="app-view" hidden>
+  <header class="topbar">
+    <div class="brand"><span class="logo" aria-hidden="true">A</span><div>altamar<small>RESORTS &amp; HOTELES</small></div></div>
+    <div class="user">
+      <span class="avatar" id="avatar" aria-hidden="true"></span>
+      <div class="user-text"><strong id="user-name"></strong><span class="role-badge" id="user-role"></span></div>
+      <button type="button" id="logout" class="ghost">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="heading">
+      <div>
+        <p class="eyebrow" id="role-eyebrow">GESTIÓN DE ESTADÍAS</p>
+        <h1 id="greeting">Hola</h1>
+        <p class="muted" id="role-intro"></p>
+        <p class="station" id="station-badge" hidden></p>
+      </div>
+    </div>
+
+    <section class="stats" aria-label="Resumen">
+      <div class="stat"><span class="stat-label">Reservas activas</span><strong id="stat-active">0</strong></div>
+      <div class="stat"><span class="stat-label">Noches reservadas</span><strong id="stat-nights">0</strong></div>
+      <div class="stat"><span class="stat-label">Canceladas</span><strong id="stat-cancelled">0</strong></div>
+    </section>
+
+    <div class="layout" id="layout">
+      <div class="side" id="side">
+        <section class="card" id="form-card" aria-labelledby="form-title">
+          <h2 id="form-title">Nueva reserva</h2>
+          <p class="muted">Completa los datos de la estadía.</p>
+          <form id="reservation-form">
+            <div class="field" id="client-field" hidden>
+              <label for="client">Cliente</label>
+              <select id="client" name="client_id">
+                <option value="">Huésped sin cuenta</option>
+              </select>
+            </div>
+            <div class="field" id="guest-field">
+              <label for="guest">Nombre del huésped</label>
+              <input name="guest" id="guest" required minlength="2" maxlength="80" placeholder="Nombre y apellido" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="hotels">Hotel</label>
+              <select name="hotel_id" id="hotels" required><option value="">Cargando hoteles…</option></select>
+            </div>
+            <div class="dates">
+              <div class="field"><label for="arrival">Llegada</label><input name="arrival" id="arrival" type="date" required></div>
+              <div class="field"><label for="departure">Salida</label><input name="departure" id="departure" type="date" required></div>
+            </div>
+            <p class="hint" id="stay-hint">Se asignará una habitación disponible. Cada hotel tiene 5 habitaciones de demostración.</p>
+            <button class="primary" type="submit" id="save">Crear reserva <span aria-hidden="true">→</span></button>
+            <p class="alert" id="message" role="status" aria-live="polite"></p>
+            <div id="alternatives" aria-live="polite"></div>
+          </form>
+        </section>
+
+        <section class="card" id="client-card" hidden aria-labelledby="client-title">
+          <details id="client-details">
+            <summary><h2 id="client-title">Registrar cliente</h2><span class="muted">Crea la cuenta de un huésped en recepción.</span></summary>
+            <form id="client-form">
+              <div class="field">
+                <label for="client-rut">RUT del cliente</label>
+                <input id="client-rut" name="rut" class="rut-input" required maxlength="12" placeholder="12.345.678-5"
+                       autocomplete="off" spellcheck="false" aria-errormessage="client-rut-error">
+                <p class="field-error" id="client-rut-error">Revisa el RUT: el dígito verificador no coincide.</p>
+              </div>
+              <div class="field">
+                <label for="client-name">Nombre completo</label>
+                <input id="client-name" name="name" required minlength="2" maxlength="80" autocomplete="off" placeholder="Nombre y apellido">
+              </div>
+              <div class="field">
+                <label for="client-password">Contraseña temporal</label>
+                <ul class="rules" id="client-password-rules" aria-live="polite">
+                  <li data-rule="length">Entre 8 y 64 caracteres</li>
+                  <li data-rule="letter">Al menos una letra</li>
+                  <li data-rule="digit">Al menos un número</li>
+                </ul>
+                <div class="password">
+                  <input id="client-password" name="password" type="password" required minlength="8" maxlength="64"
+                         pattern="(?=.*\p{L})(?=.*\d).{8,64}" autocomplete="new-password"
+                         aria-describedby="client-password-rules" class="password-rules-input">
+                  <button type="button" class="reveal" aria-controls="client-password" aria-pressed="false">Mostrar</button>
+                </div>
+              </div>
+              <button class="primary" type="submit">Registrar cliente</button>
+              <p class="alert" id="client-message" role="status" aria-live="polite"></p>
+            </form>
+          </details>
+        </section>
+      </div>
+
+      <section class="card list" aria-labelledby="list-title">
+        <div class="list-heading">
+          <h2 id="list-title">Registro de reservas</h2>
+          <button id="refresh" type="button" class="secondary">Actualizar <span aria-hidden="true">↻</span></button>
+        </div>
+        <div class="toolbar">
+          <fieldset class="segmented">
+            <legend class="sr-only">Filtrar por estado</legend>
+            <label><input type="radio" name="filter" value="all" checked><span>Todas</span></label>
+            <label><input type="radio" name="filter" value="Confirmada"><span>Confirmadas</span></label>
+            <label><input type="radio" name="filter" value="Alojado"><span>Alojados</span></label>
+            <label><input type="radio" name="filter" value="Finalizada"><span>Finalizadas</span></label>
+            <label><input type="radio" name="filter" value="Cancelada"><span>Canceladas</span></label>
+          </fieldset>
+          <div class="search" id="hotel-filter-box" hidden>
+            <label for="hotel-filter" class="sr-only">Filtrar por hotel</label>
+            <select id="hotel-filter"><option value="">Toda la cadena</option></select>
+          </div>
+          <div class="search" id="search-box">
+            <label for="search" class="sr-only">Buscar reserva</label>
+            <input type="search" id="search" placeholder="Buscar huésped, código u hotel" autocomplete="off">
+          </div>
+        </div>
+        <p class="alert" id="list-message" role="status" aria-live="polite"></p>
+        <div id="reservations"><p class="empty">Cargando reservas…</p></div>
+      </section>
+    </div>
+
+    <section class="card" id="services-card" hidden aria-labelledby="services-title">
+      <div class="list-heading">
+        <div><h2 id="services-title">Servicios adicionales</h2><p class="muted">Alta, precio y retiro de servicios por hotel. Los cambios rigen de inmediato, sin detener el sistema.</p></div>
+        <div class="field inline-field"><label for="services-hotel">Hotel</label><select id="services-hotel"></select></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Servicio</th><th scope="col">Precio (CLP)</th><th scope="col">Estado</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+          <tbody id="services-rows"></tbody>
+        </table>
+      </div>
+      <form id="service-form" class="service-form">
+        <div class="field"><label for="service-name">Nuevo servicio</label><input id="service-name" name="name" required minlength="2" maxlength="60" placeholder="Ej.: Kayak" autocomplete="off"></div>
+        <div class="field"><label for="service-price">Precio (CLP)</label><input id="service-price" name="price" required inputmode="numeric" pattern="[0-9]{1,7}" placeholder="20000" autocomplete="off"></div>
+        <button class="primary" type="submit">Agregar servicio</button>
+      </form>
+      <p class="alert" id="services-message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card audit" id="audit-card" hidden aria-labelledby="audit-title">
+      <div class="list-heading">
+        <div><h2 id="audit-title">Actividad de seguridad</h2><p class="muted">Últimos 100 eventos: accesos, bloqueos, registros y reservas.</p></div>
+        <button id="refresh-audit" type="button" class="secondary">Actualizar <span aria-hidden="true">↻</span></button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Evento</th><th scope="col">Usuario</th><th scope="col">Detalle</th></tr></thead>
+          <tbody id="audit-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>Prototipo académico basado en el caso Resorts Altamar. Los datos se guardan solo en este equipo.</footer>
+  </main>
+</div>
+
+<dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+  <form method="dialog">
+    <h2 id="confirm-title">¿Cancelar esta reserva?</h2>
+    <p id="confirm-text" class="muted"></p>
+    <p class="muted small">La habitación quedará disponible de inmediato. Esta acción no se puede deshacer.</p>
+    <div class="dialog-actions">
+      <button value="no" class="secondary" autofocus>Volver</button>
+      <button value="yes" class="danger">Sí, cancelar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="folio-dialog" class="wide" aria-labelledby="folio-title">
+  <div class="dialog-body">
+    <h2 id="folio-title">Servicios y cuenta</h2>
+    <p id="folio-summary" class="muted"></p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Concepto</th><th scope="col">Cant.</th><th scope="col">Subtotal</th><th scope="col"><span class="sr-only">Acciones</span></th></tr></thead>
+        <tbody id="folio-rows"></tbody>
+        <tfoot><tr><th scope="row" colspan="2" id="folio-total-label">Total estimado</th><td id="folio-total" class="money"></td><td></td></tr></tfoot>
+      </table>
+    </div>
+    <form id="folio-form" class="service-form">
+      <input type="hidden" name="reservation_id" id="folio-id">
+      <div class="field"><label for="folio-service">Contratar servicio</label><select id="folio-service" name="service_id" required></select></div>
+      <div class="field qty"><label for="folio-qty">Cantidad</label><input id="folio-qty" name="quantity" type="number" min="1" max="20" value="1" required></div>
+      <button class="primary" type="submit">Agregar</button>
+    </form>
+    <p class="alert" id="folio-message" role="status" aria-live="polite"></p>
+    <div class="dialog-actions"><button type="button" id="close-folio" class="secondary">Cerrar</button></div>
+  </div>
+</dialog>
+
+<dialog id="dates-dialog" aria-labelledby="dates-title">
+  <form id="dates-form">
+    <h2 id="dates-title">Modificar fechas</h2>
+    <p id="dates-summary" class="muted"></p>
+    <input type="hidden" name="id" id="dates-id">
+    <div class="dates">
+      <div class="field"><label for="edit-arrival">Llegada</label><input id="edit-arrival" name="arrival" type="date" required></div>
+      <div class="field"><label for="edit-departure">Salida</label><input id="edit-departure" name="departure" type="date" required></div>
+    </div>
+    <p class="alert" id="dates-message" role="status"></p>
+    <div id="dates-alternatives"></div>
+    <div class="dialog-actions">
+      <button type="button" id="close-dates" class="secondary">Volver</button>
+      <button type="submit" class="primary">Guardar fechas</button>
+    </div>
+  </form>
+</dialog>
+</body>
+</html>
