@@ -216,3 +216,94 @@ dialog .dialog-body form{padding:0}
   #folio-dialog th,#folio-dialog td{padding:8px 5px;font-size:12px}
   #folio-dialog .dialog-body{padding:20px 16px}
 }
+
+
+/* Altamar: papel cálido, tinta azul y acentos de cobre. */
+:root{
+ --ink:#233747;--ink-soft:#4c5b64;--muted:#6b726e;--line:#ded8cd;--line-strong:#c7c0b4;
+ --bg:#f3efe6;--surface:#fffcf5;--surface-soft:#eee9de;
+ --brand:#203e50;--brand-2:#345b6d;--brand-3:#795038;--gold:#dbb48b;--gold-soft:#f2e3cc;
+ --radius:3px;--radius-sm:3px;--shadow:none;
+}
+.topbar{min-height:96px;background:#203e50;border-bottom:4px solid #aa714d;padding-inline:max(5%,24px)}
+.brand{font-size:34px;letter-spacing:1px}
+.logo{border-radius:0;border:1px solid #d9b28a;width:43px;height:47px;font-size:29px}
+.brand small{color:#e4d9c5;font-size:8px;letter-spacing:.28em}
+.ghost{border-radius:3px}
+.avatar{border-radius:3px;background:#e1c39e}
+.role-badge{background:none;padding:0;color:#e3ccaa;letter-spacing:.13em}
+.content{max-width:1440px;gap:26px;padding-top:40px}
+.heading{border-bottom:1px solid #bcb5a7;padding-bottom:24px}
+.heading h1{font:normal clamp(32px,3.2vw,46px)/1.1 Georgia,serif;letter-spacing:-1.1px;margin:12px 0}
+.eyebrow{font-size:10px;color:#865437;letter-spacing:.2em;font-weight:700}
+.stats{gap:0;border-bottom:1px solid #c9c0b1;padding:0 0 25px}
+.stat{background:none;border:0;border-right:1px solid #c9c0b1;border-radius:0;box-shadow:none;padding:0 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.stat:first-child{padding-left:0}.stat:last-child{border-right:0}
+.stat-label{font-size:12px;color:#57615f}.stat strong{font:40px Georgia,serif;font-variant-numeric:tabular-nums}
+.layout{grid-template-columns:330px minmax(0,1fr);gap:36px}
+.card{border:0;border-radius:0;box-shadow:none;background:transparent;padding:0}
+#form-card{background:var(--surface);padding:26px;border:1px solid var(--line);border-top:3px solid #aa714d}
+.card h2{font:24px Georgia,serif;letter-spacing:-.4px}
+.card form{gap:18px}.side{gap:26px}
+#client-card{padding:20px 0;border-top:1px solid var(--line)}
+#client-title{font-size:20px}
+.list-heading{padding:6px 0 18px;border-bottom:2px solid #294858}
+.toolbar{margin:17px 0;gap:14px}
+.segmented{background:transparent;padding:0;gap:2px;border-bottom:1px solid var(--line);border-radius:0;max-width:100%}
+.segmented span{padding:9px 10px;font-size:12px;border-radius:0;border-bottom:2px solid transparent}
+.segmented input:checked + span{background:none;box-shadow:none;border-bottom-color:#a46742;color:var(--brand)}
+input,select{background:#fffef9;min-height:44px;border-color:#cfc8ba;font-size:13px}
+input::placeholder{color:#7d8179}
+input:hover,select:hover{border-color:#927c65}
+input:focus-visible,select:focus-visible{border-color:#385e72;box-shadow:0 0 0 3px #385e721c}
+input:user-valid:not([type=date]):not([type=search]){border-color:#b1beb1}
+label{font-size:12px;font-weight:600}
+.primary{background:#203e50;min-height:44px;box-shadow:none}
+.secondary{background:transparent;border:1px solid #c5bcaa;font-size:12px;padding:8px 11px;min-height:36px}
+.secondary:hover{background:#e9e2d4;border-color:#8e8069}
+.search{max-width:none}.search input{background:#fffcf5}
+.reservation{padding:23px 0;border-top:1px solid #cfc6b7;gap:20px}
+.reservation:first-child{border-top:0}
+.reservation-main{gap:10px;align-content:start;flex:1}
+.reservation-title{gap:8px 14px}
+.reservation h3{font:22px Georgia,serif}
+.code{color:#865437;font-size:10px;letter-spacing:.08em}
+.reservation-side{flex:0 0 144px;justify-content:flex-start;gap:8px}
+.reservation-side .secondary{width:100%;font-size:11px}
+.reservation-side [data-action=checkin],.reservation-side [data-action=checkout]{background:#203e50;color:white;border-color:#203e50}
+.reservation-side [data-action=checkin]:hover,.reservation-side [data-action=checkout]:hover{background:#345b6d}
+.reservation-place span{display:block;margin-top:3px}.reservation-dates{color:#59635f;line-height:1.8}
+.badge{border-radius:2px;letter-spacing:.05em;font-size:10px;padding:5px 8px}
+.badge[data-status=Alojado]{background:#dfeaf0;color:#294f64}
+.badge[data-status=Finalizada]{background:#e8e5df;color:#585d59}
+.badge[data-status=Confirmada]{background:#e7edde;color:#47613d}
+.nights{border-radius:2px;font-size:11px}
+.station{background:none;color:#586354;border:0;border-radius:0;padding:0;margin-top:12px;font-size:11px;max-width:100%;line-height:1.7}
+.station::before{width:5px;height:5px;flex-shrink:0}
+.empty{padding:58px 22px;background:#ece6d8;margin-top:20px;border:1px solid #ded3bf;gap:10px}
+.empty strong{font:24px Georgia,serif;color:var(--brand)}
+.audit{padding-top:28px;border-top:1px solid #c4b9a7}
+th{background:#eae4d8;padding:12px 10px;color:#6e6254}
+td{padding:13px 10px}.table-wrap{border:1px solid var(--line)}
+tfoot td,tfoot th{background:#eae4d8}
+dialog{border-radius:4px;border-top:4px solid #a66c45;background:#fffcf5}
+dialog::backdrop{background:#152b3a99}
+dialog h2{font-size:27px}.dialog-actions{flex-wrap:wrap}
+.auth{grid-template-columns:1fr 1fr;background:var(--bg)}
+.auth-brand{background:#203e50;padding:52px 58px;border-right:6px solid #af7753}
+.auth-brand::after{display:none}
+.auth-pitch{gap:26px;max-width:470px}
+.pitch{font:clamp(38px,4.5vw,64px)/1.07 Georgia,serif;letter-spacing:-1.8px;color:#f8eedc}
+.facts{gap:30px;padding-top:26px;border-top:1px solid #9fafb04d}.facts strong{font-size:30px;color:#e8c298}
+.facts span{color:#c9d1cf;font-size:11px}.auth-note{font-size:10px;color:#b6c7c8}
+.auth-panel{padding:45px;background:#f3efe6}
+.auth-card{max-width:390px;background:transparent;box-shadow:none;border:0;border-radius:0;padding:0;gap:32px}
+.auth-card h1{font:35px Georgia,serif;letter-spacing:-.7px}
+.tabs{background:none;border-radius:0;padding:0;border-bottom:1px solid #c8beae;gap:18px}
+.tabs button{border-radius:0;border-bottom:2px solid transparent;padding:12px 0;text-align:left}
+.tabs button[aria-selected=true]{box-shadow:none;background:none;border-bottom-color:#a66c45}
+.rules{font-size:11px}footer{border-top:1px solid var(--line);padding-top:22px;font-size:10px;text-align:left;letter-spacing:.02em}
+@media(max-width:1100px) and (min-width:801px){.layout{grid-template-columns:290px minmax(0,1fr);gap:24px}.reservation{flex-direction:column}.reservation-side{flex:auto;flex-direction:row;align-items:center}.reservation-side .secondary{width:auto}.auth-brand{padding:40px}}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.auth{grid-template-columns:1fr}.auth-brand{padding:28px;border-right:0;border-bottom:4px solid #af7753;gap:25px}.auth-pitch{gap:15px}.pitch{font-size:38px}.facts{padding-top:16px}.auth-panel{padding:32px 24px;place-items:center}.content{padding:28px 22px}.stat{padding:0 18px}.stat strong{font-size:32px}}
+@media(max-width:560px){.topbar{min-height:80px;padding:14px 18px}.brand{font-size:28px}.stats{gap:0}.stat{display:grid;padding:0 10px;gap:8px}.stat-label{font-size:10px}.stat strong{font-size:31px}.heading h1{font-size:34px}.reservation-side{flex:auto;flex-direction:row;align-items:center}.reservation-side .secondary{width:auto}.reservation{gap:15px}.reservation h3{font-size:21px}#form-card{padding:22px}.station{border:0;padding:0}.facts{gap:24px}.facts strong{font-size:26px}}
+

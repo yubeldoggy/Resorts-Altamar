@@ -100,7 +100,7 @@ async function showApp(user){
   $('#user-name').textContent=user.name;
   $('#user-role').textContent=ROLE_NAMES[role]||role;$('#user-role').dataset.role=role;
   $('#avatar').textContent=user.name.split(' ').filter(Boolean).slice(0,2).map(p=>p[0]).join('').toUpperCase();
-  $('#greeting').textContent=`Hola, ${user.name.split(' ')[0]}`;
+  $('#greeting').textContent=role==='cliente'?'Tus próximas estadías':role==='recepcion'?'Libro de recepción':'La cadena, en perspectiva';
   $('#role-eyebrow').textContent=`PANEL DE ${(ROLE_NAMES[role]||role).toUpperCase()}`;
   $('#role-intro').textContent=ROLE_INTRO[role]||'';
   // Cada rol ve solo lo que puede usar; el servidor valida los mismos permisos.
@@ -166,7 +166,7 @@ function render(){
         ${r.status==='Finalizada'&&r.total!=null?`<p class="charged">Cobrado: <b>${clp(r.total)}</b></p>`:''}
       </div>
       <div class="reservation-side">
-        <span class="badge${cancelled?' cancelled':''}">${escapeHTML(r.status)}</span>
+        <span class="badge${cancelled?' cancelled':''}" data-status="${escapeHTML(r.status)}">${escapeHTML(r.status)}</span>
         ${cancelled?'':`<button type="button" class="secondary" data-action="folio" data-id="${r.id}">${['Confirmada','Alojado'].includes(r.status)?'Servicios y cuenta':'Ver cuenta'}</button>`}
         ${r.status==='Confirmada'?`<button type="button" class="secondary" data-action="dates" data-id="${r.id}">Modificar fechas</button><button type="button" class="cancel" data-action="cancel" data-id="${r.id}">Cancelar</button>`:''}
         ${state.user.role!=='cliente'&&r.status==='Confirmada'?`<button type="button" class="secondary" data-action="checkin" data-id="${r.id}">Check-in</button>`:''}
