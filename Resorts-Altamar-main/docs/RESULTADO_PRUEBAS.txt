@@ -1,0 +1,56 @@
+Ejecucion: 2026-10-01 (America/Santiago)
+Version revisada: Resorts-Altamar-main
+Python: 3.12.14
+
+test_account_locks_after_five_failures (test_app.AccessTests.test_account_locks_after_five_failures) ... ok
+test_client_only_sees_and_cancels_own_reservations (test_app.AccessTests.test_client_only_sees_and_cancels_own_reservations) ... ok
+test_logout_invalidates_session (test_app.AccessTests.test_logout_invalidates_session) ... ok
+test_manager_sees_all_and_cannot_create (test_app.AccessTests.test_manager_sees_all_and_cannot_create) ... ok
+test_passwords_are_stored_hashed (test_app.AccessTests.test_passwords_are_stored_hashed) ... ok
+test_rut_validation (test_app.AccessTests.test_rut_validation) ... ok
+test_three_roles (test_app.AccessTests.test_three_roles) ... ok
+test_unknown_rut_also_locks (test_app.AccessTests.test_unknown_rut_also_locks) ... ok
+test_wrong_password_and_unknown_rut_are_rejected (test_app.AccessTests.test_wrong_password_and_unknown_rut_are_rejected) ... ok
+test_only_manager_reads_audit (test_app.AuditTests.test_only_manager_reads_audit) ... ok
+test_security_events_are_logged (test_app.AuditTests.test_security_events_are_logged) ... ok
+test_cross_site_requests_rejected (test_app.HttpSecurityTests.test_cross_site_requests_rejected) ... ok
+test_malformed_bodies_get_generic_400 (test_app.HttpSecurityTests.test_malformed_bodies_get_generic_400) ... ok
+test_other_methods_and_paths (test_app.HttpSecurityTests.test_other_methods_and_paths) ... ok
+test_weird_ids_never_cause_500 (test_app.HttpSecurityTests.test_weird_ids_never_cause_500) ... ok
+test_prices_only_ascii_digits_in_range (test_app.InputHardeningTests.test_prices_only_ascii_digits_in_range) ... ok
+test_registration_rate_limit (test_app.InputHardeningTests.test_registration_rate_limit) ... ok
+test_reservation_too_far_ahead (test_app.InputHardeningTests.test_reservation_too_far_ahead) ... ok
+test_to_int_rejects_weird_values (test_app.InputHardeningTests.test_to_int_rejects_weird_values) ... ok
+test_alternatives_are_available_and_same_region (test_app.ReceptionTests.test_alternatives_are_available_and_same_region) ... ok
+test_cancelled_reservation_cannot_be_modified (test_app.ReceptionTests.test_cancelled_reservation_cannot_be_modified) ... ok
+test_client_permissions (test_app.ReceptionTests.test_client_permissions) ... ok
+test_failed_modification_preserves_original (test_app.ReceptionTests.test_failed_modification_preserves_original) ... ok
+test_future_checkin_rejected (test_app.ReceptionTests.test_future_checkin_rejected) ... ok
+test_modify_dates_replaces_nights (test_app.ReceptionTests.test_modify_dates_replaces_nights) ... ok
+test_no_regional_alternative (test_app.ReceptionTests.test_no_regional_alternative) ... ok
+test_reception_cycle_and_closed_reservations (test_app.ReceptionTests.test_reception_cycle_and_closed_reservations) ... ok
+test_duplicate_rut_is_rejected (test_app.RegistrationTests.test_duplicate_rut_is_rejected) ... ok
+test_name_validation (test_app.RegistrationTests.test_name_validation) ... ok
+test_only_reception_manages_clients (test_app.RegistrationTests.test_only_reception_manages_clients) ... ok
+test_password_policy (test_app.RegistrationTests.test_password_policy) ... ok
+test_public_registration_creates_client_and_session (test_app.RegistrationTests.test_public_registration_creates_client_and_session) ... ok
+test_reception_creates_client_and_books_for_them (test_app.RegistrationTests.test_reception_creates_client_and_books_for_them) ... ok
+test_registration_cannot_choose_role (test_app.RegistrationTests.test_registration_cannot_choose_role) ... ok
+test_concurrent_requests_cannot_overbook (test_app.ReservationTests.test_concurrent_requests_cannot_overbook) ... ok
+test_create_and_cancel_releases_inventory (test_app.ReservationTests.test_create_and_cancel_releases_inventory) ... ok
+test_departure_day_is_available (test_app.ReservationTests.test_departure_day_is_available) ... ok
+test_invalid_dates_hotel_and_guest (test_app.ReservationTests.test_invalid_dates_hotel_and_guest) ... ok
+test_twenty_hotels (test_app.ReservationTests.test_twenty_hotels) ... ok
+test_client_contracts_and_checkout_charges (test_app.ServiceTests.test_client_contracts_and_checkout_charges) ... ok
+test_default_services_and_rates (test_app.ServiceTests.test_default_services_and_rates) ... ok
+test_manager_creates_configures_and_retires (test_app.ServiceTests.test_manager_creates_configures_and_retires) ... ok
+test_only_manager_configures (test_app.ServiceTests.test_only_manager_configures) ... ok
+test_service_rules (test_app.ServiceTests.test_service_rules) ... ok
+test_reception_works_only_with_local_hotel (test_app.StationTests.test_reception_works_only_with_local_hotel) ... ok
+test_station_accepts_id_or_city (test_app.StationTests.test_station_accepts_id_or_city) ... ok
+test_station_detected_fast_for_staff_only (test_app.StationTests.test_station_detected_fast_for_staff_only) ... ok
+
+----------------------------------------------------------------------
+Ran 47 tests in 8.264s
+
+OK

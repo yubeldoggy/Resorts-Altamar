@@ -127,6 +127,11 @@ El cobro es un registro del monto: no hay pago en línea, boleta ni factura.
 
 ## Alcance
 
-Prototipo basado en el caso Resorts Altamar. Cubre, en versión de prototipo, RF-01 a RF-07 y los requisitos RNF-02 a RNF-04. Quedan fuera del código y se presentan aparte: la arquitectura SaaS/IaaS (RNF-01) y los diagramas UML.
+Prototipo basado en el caso Resorts Altamar. Cubre, en versión de prototipo, RF-01 a RF-07 y los requisitos RNF-02 a RNF-04. La arquitectura actual y la propuesta SaaS/IaaS (RNF-01), junto con los diagramas UML, están explicadas en [docs/LEEME.md](docs/LEEME.md). La propuesta cloud no está desplegada.
 
 Límites: funciona en un solo computador con `http://` local (sin HTTPS), el cobro no incluye pago real, y las cuentas de prueba son públicas en este README: sirven solo para la demostración.
+
+
+## Material para presentar EV03
+
+Abre [docs/LEEME.md](docs/LEEME.md): arquitectura, tres diagramas UML, seguridad, resultado de 47 pruebas y guion para tres integrantes. La documentación distingue lo implementado de lo propuesto y no afirma certificación ISO ni cumplimiento legal integral.

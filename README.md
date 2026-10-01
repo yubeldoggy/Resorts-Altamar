@@ -1,3 +1,11 @@
+# Version para la evaluacion EV03
+
+La version mas completa esta en **[Resorts-Altamar-main](Resorts-Altamar-main/README.md)**. Incluye servicios, cobros, estacion por hotel y 47 pruebas.
+
+Consulta el **[material de exposicion](Resorts-Altamar-main/docs/LEEME.md)**: arquitectura SaaS/IaaS, UML, seguridad y pruebas. El contenido que sigue describe la version anterior de esta carpeta principal.
+
+---
+
 # Resorts Altamar - prototipo de reservas
 
 Aplicación local para crear, listar, modificar fechas y cancelar reservas, con check-in/check-out y sugerencias de hoteles alternativos, con inicio de sesión por RUT, registro de clientes y tres roles. Incluye 20 hoteles en 4 regiones, con 5 habitaciones de demostración por hotel. Los datos se guardan en `altamar.sqlite3`, creado al iniciar.
