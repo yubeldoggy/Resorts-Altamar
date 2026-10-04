@@ -13,7 +13,7 @@ flowchart LR
 
 Es un monolito sencillo: interfaz separada en archivos, pero reglas y acceso a datos dentro de `app.py`. No hay microservicios ni un framework adicional.
 
-La configuración de estación representa el hotel del equipo; **no utiliza GPS**. Si no hay una configuración válida, la implementación permite a recepción operar sobre la cadena y lo advierte. Para la exposición, mantener un hotel válido en `estacion.json`.
+La configuración de estación representa el hotel del equipo; **no utiliza GPS**. Si no hay una configuración válida, la implementación rechaza el inicio de sesión de recepción. Para la exposición, mantener un hotel válido en `estacion.json`.
 
 ## SaaS, IaaS y Cloud en este proyecto
 

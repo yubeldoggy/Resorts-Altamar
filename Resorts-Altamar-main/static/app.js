@@ -89,6 +89,7 @@ $$('[role=tab]').forEach(tab=>{
 /* ---------- Vistas ---------- */
 function showAuth(text=''){
   $('#dates-dialog').close();$('#folio-dialog').close();
+  clearAvailability();
   state.user=null;
   $('#app-view').hidden=true;$('#auth-view').hidden=false;
   if(text){selectTab($('#tab-login'));message('#login-message',text,'error');}
@@ -142,7 +143,15 @@ async function showApp(user){
 }
 
 /* ---------- Reservas ---------- */
-async function refresh(){state.rows=await api('reservations');render();}
+let refreshVersion=0;
+async function refresh(automatic=false){
+  const user=state.user, version=++refreshVersion;
+  const rows=await api('reservations');
+  if(state.user!==user||version!==refreshVersion)return;
+  if(automatic&&JSON.stringify(rows)===JSON.stringify(state.rows))return;
+  state.rows=rows;render();
+}
+
 function render(){
   const rows=state.rows;
   const active=rows.filter(r=>['Confirmada','Alojado'].includes(r.status));
@@ -243,7 +252,7 @@ $('#reservation-form').addEventListener('submit',async event=>{
   event.preventDefault();message('#message');
   $('#alternatives').innerHTML='';
   await busy($('#save'),async()=>{
-    try{const result=await api('reservations',Object.fromEntries(new FormData(event.target)));message('#message',result.message);resetGuest(event.target);await refresh();}
+    try{clearAvailability();const result=await api('reservations',Object.fromEntries(new FormData(event.target)));message('#message',result.message);resetGuest(event.target);await refresh();}
     catch(error){
       message('#message',error.message,'error');
       const local=state.user?.role==='recepcion'&&state.user.station;
@@ -294,7 +303,7 @@ function showAlternatives(target, hotels, selectable=false, note=''){
 }
 $('#alternatives').addEventListener('click',event=>{
   const button=event.target.closest('[data-hotel]');if(!button)return;
-  $('#hotels').value=button.dataset.hotel;$('#alternatives').innerHTML='';
+  clearAvailability();$('#hotels').value=button.dataset.hotel;$('#alternatives').innerHTML='';
   message('#message','Hotel alternativo seleccionado. Presiona Crear reserva para confirmar.');
 });
 function openDates(row){
@@ -390,3 +399,24 @@ $('#service-form').addEventListener('submit',async event=>{
 (async()=>{
   try{await showApp(await api('me'));}catch{if(!state.user)showAuth();}
 })();
+
+let autoRefreshBusy=false;
+setInterval(async()=>{
+  if(!state.user||document.hidden||autoRefreshBusy||document.querySelector('dialog[open]')||
+     document.activeElement?.closest('#reservations'))return;
+  autoRefreshBusy=true;
+  try{await refresh(true);}catch(error){/* El botón Actualizar permite reintentar manualmente. */}
+  finally{autoRefreshBusy=false;}
+},5000);
+let availabilityVersion=0;
+function clearAvailability(){availabilityVersion++;message('#availability-result');}
+['#hotels','#arrival','#departure'].forEach(selector=>$(selector).addEventListener('input',clearAvailability));
+$('#check-availability').addEventListener('click',event=>busy(event.currentTarget,async()=>{
+  const version=++availabilityVersion, user=state.user;
+  const query=new URLSearchParams({hotel_id:$('#hotels').value,arrival:$('#arrival').value,departure:$('#departure').value});
+  try{
+    const result=await api('availability?'+query);
+    if(version!==availabilityVersion||state.user!==user)return;
+    message('#availability-result',result.available?`${result.available} habitaciones disponibles. El cupo se confirma al crear la reserva.`:'Sin habitaciones disponibles para esas fechas.');
+  }catch(error){if(version===availabilityVersion&&state.user===user)message('#availability-result',error.message,'error');}
+}));

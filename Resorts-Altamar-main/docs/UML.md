@@ -118,4 +118,4 @@ Cancelar libera las noches. El check-out calcula alojamiento y servicios, guarda
 | Recepción | Registrar clientes y gestionar reservas, servicios y entradas/salidas en el hotel configurado. |
 | Gerencia | Supervisar la cadena, configurar servicios, gestionar reservas existentes y consultar bitácora. No crea reservas. |
 
-El alcance de recepción depende de una estación válida; la excepción cuando falta configuración está documentada en `ARQUITECTURA.md`.
+Recepción necesita una estación válida para iniciar sesión y solo opera en ese hotel.

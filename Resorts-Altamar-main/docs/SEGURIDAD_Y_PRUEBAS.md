@@ -73,6 +73,12 @@ La relación anterior es una explicación académica de medidas preventivas: el 
 
 ## Límites que deben reconocer
 
-HTTP local sin HTTPS; cuentas de demostración conocidas; archivo SQLite sin cifrado añadido por la aplicación; ausencia de copias automáticas y monitoreo; bloqueo por RUT susceptible de abuso. Si la estación falta, recepción pierde la restricción local en esta implementación. Mantener `estacion.json` correcto para la demo; antes de producción debería rechazarse ese inicio de sesión.
+HTTP local sin HTTPS; cuentas de demostración conocidas; archivo SQLite sin cifrado añadido por la aplicación; ausencia de copias automáticas y monitoreo; bloqueo por RUT susceptible de abuso. Si la estación falta o no es válida, se rechaza el inicio de sesión de recepción. Las sesiones antiguas de recepción sin hotel tampoco se aceptan.
 
 No se midieron 300 usuarios concurrentes, disponibilidad anual ni tolerancia a fallos. Las fuentes oficiales se consultaron el 1 de octubre de 2026.
+
+## Revisión del 3 de octubre de 2026
+
+Tras agregar consulta de disponibilidad y bloquear recepción sin estación: **51 pruebas aprobadas, sin fallos ni errores**, en 14,487 segundos. Se ejecutaron en una copia del código con bases temporales. El registro de 47 pruebas y hashes anterior corresponde a la versión del 1 de octubre.
+
+Las nuevas pruebas comprueban cupos sin crear reservas, hotel lleno y liberación al cancelar, consultas inválidas, restricciones de hotel, rechazo de login y sesiones antiguas sin estación y acceso HTTP autenticado. También se comprobó con Node la actualización automática: cambios recibidos, ausencia de cambios, pestaña oculta y descarte de respuestas después del cierre de sesión. No se realizó una nueva prueba visual de navegador en esta revisión.

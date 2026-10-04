@@ -15,8 +15,9 @@ class BaseTest(unittest.TestCase):
         self.original = app.DATABASE, app.PBKDF2_ITERATIONS, app.STATION_FILE
         app.DATABASE = Path(self.temp.name) / 'test.sqlite3'
         app.PBKDF2_ITERATIONS = 1000  # Solo para que las pruebas sean rápidas.
-        # Sin estacion.json: la recepción opera toda la cadena, salvo en StationTests.
+        # Estación válida por defecto: Arica.
         app.STATION_FILE = Path(self.temp.name) / 'estacion.json'
+        app.STATION_FILE.write_text('{"hotel": "1"}', encoding='utf-8')
         app.initialize()
         self.users = {role: self.user(rut, password) for rut, _, role, password in app.TEST_ACCOUNTS}
         self.data = {'guest': 'Cliente de prueba', 'hotel_id': 1,
@@ -72,7 +73,7 @@ class ReservationTests(BaseTest):
                      {**self.data, 'hotel_id': 999}, {**self.data, 'guest': ''},
                      {**self.data, 'guest': '<script>alert(1)</script>'}]:
             with self.assertRaises(ValueError):
-                app.create_reservation(data, self.users['recepcion'])
+                app.create_reservation(data, self.users['cliente'] if data['hotel_id'] == 999 else self.users['recepcion'])
 
 
 class ReceptionTests(BaseTest):
@@ -100,7 +101,7 @@ class ReceptionTests(BaseTest):
     def test_alternatives_are_available_and_same_region(self):
         for hotel in (1, 2):
             for _ in range(5):
-                app.create_reservation({**self.data, 'hotel_id': hotel}, self.users['recepcion'])
+                app.create_reservation({**self.data, 'hotel_id': hotel}, self.users['cliente'])
         with self.assertRaises(app.NoAvailability) as error:
             app.create_reservation(self.data, self.users['cliente'])
         self.assertEqual({h['id'] for h in error.exception.alternatives}, {3, 4, 5})
@@ -109,7 +110,7 @@ class ReceptionTests(BaseTest):
     def test_no_regional_alternative(self):
         for hotel in range(1, 6):
             for _ in range(5):
-                app.create_reservation({**self.data, 'hotel_id': hotel}, self.users['recepcion'])
+                app.create_reservation({**self.data, 'hotel_id': hotel}, self.users['cliente'])
         with self.assertRaises(app.NoAvailability) as error:
             app.create_reservation(self.data, self.users['cliente'])
         self.assertEqual(error.exception.alternatives, [])
@@ -172,7 +173,8 @@ class StationTests(BaseTest):
     def test_station_accepts_id_or_city(self):
         self.assertEqual(self.set_station('11')['recepcion']['station']['name'], 'Altamar Pucón')
         self.assertEqual(self.set_station('valdivia')['recepcion']['station']['name'], 'Altamar Valdivia')
-        self.assertIsNone(self.set_station('Hotel inexistente')['recepcion']['station'])
+        with self.assertRaises(app.AccessError):
+            self.set_station('Hotel inexistente')
 
     def test_reception_works_only_with_local_hotel(self):
         other = app.create_reservation(self.data, self.users['recepcion'])['id']  # Arica, sin estación.
@@ -448,6 +450,18 @@ class HttpSecurityTests(BaseTest):
         conn.close()
         return response.status, text, cookie, response
 
+    def test_availability_http_requires_session_and_validates_input(self):
+        from urllib.parse import urlencode
+        self.cookie = None
+        path = '/api/availability?' + urlencode(self.data)
+        self.assertEqual(self.request('GET', path)[0], 401)
+        rut, _, _, password = next(a for a in app.TEST_ACCOUNTS if a[2] == 'cliente')
+        self.cookie = self.request('POST', '/api/login', {'rut': rut, 'password': password})[2]
+        status, body, _, _ = self.request('GET', path)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['available'], 5)
+        self.assertEqual(self.request('GET', '/api/availability?hotel_id=1')[0], 400)
+
     def assert_clean_400(self, status, text):
         self.assertEqual(status, 400, text)
         for leak in ('Expecting', 'invalid literal', 'codec', 'int()', 'Traceback', 'sqlite'):
@@ -479,6 +493,38 @@ class HttpSecurityTests(BaseTest):
             self.assertEqual(self.request('GET', path)[0], 404, path)
         self.cookie = "altamar_session=' OR '1'='1"
         self.assertEqual(self.request('GET', '/api/me')[0], 401)
+
+
+
+
+
+class AvailabilityTests(BaseTest):
+    def test_availability_does_not_book_and_tracks_cancellations(self):
+        user = self.users['cliente']
+        self.assertEqual(app.availability(self.data, user)['available'], 5)
+        self.assertEqual(app.list_reservations(user), [])
+        ids = [app.create_reservation(self.data, user)['id'] for _ in range(5)]
+        self.assertEqual(app.availability(self.data, user)['available'], 0)
+        app.cancel_reservation(ids[0], user)
+        self.assertEqual(app.availability(self.data, user)['available'], 1)
+
+    def test_invalid_queries_and_local_scope(self):
+        for data in ({**self.data, 'hotel_id': 999}, {**self.data, 'arrival': 'bad'},
+                     {**self.data, 'departure': self.data['arrival']}):
+            with self.assertRaises(ValueError):
+                app.availability(data, self.users['cliente'])
+        with self.assertRaises(app.AccessError):
+            app.availability({**self.data, 'hotel_id': 2}, self.users['recepcion'])
+
+    def test_missing_station_denies_login_and_old_session(self):
+        app.STATION_FILE.unlink()
+        for rut, _, role, password in app.TEST_ACCOUNTS:
+            if role == 'recepcion':
+                with self.assertRaises(app.AccessError):
+                    app.login({'rut': rut, 'password': password})
+        with app.connection() as db:
+            token = app.start_session(db, self.users['recepcion']['id'])
+        self.assertIsNone(app.session_user(token))
 
 
 if __name__ == '__main__':

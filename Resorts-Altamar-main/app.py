@@ -197,8 +197,13 @@ def detect_station(db):
 
 
 def local_hotel(user):
-    """Hotel al que queda limitada la recepción: el de su estación (None = sin estación configurada)."""
-    return (user.get('station') or {}).get('id') if user['role'] == 'recepcion' else None
+    """La recepción siempre necesita una estación válida."""
+    if user['role'] != 'recepcion':
+        return None
+    hotel = (user.get('station') or {}).get('id')
+    if not hotel:
+        raise AccessError('La estación no tiene un hotel válido. Vuelve a iniciar sesión.')
+    return hotel
 
 
 @contextmanager
@@ -308,6 +313,8 @@ def login(data):
                 station, station_ms = (None, None)
                 if user['role'] in ('recepcion', 'gerente'):
                     station, station_ms = detect_station(db)
+                if user['role'] == 'recepcion' and not station:
+                    raise AccessError('La estación no tiene un hotel válido. Revisa estacion.json antes de ingresar.')
                 token = start_session(db, user['id'], station, station_ms)
                 audit(db, 'inicio_sesion', user['id'],
                       f"Estación: {station['name']} ({station_ms} ms)" if station else '')
@@ -377,7 +384,7 @@ def session_user(token):
             h.id station_id, h.name station_name, h.region station_region
             FROM sessions s JOIN users u ON u.id=s.user_id LEFT JOIN hotels h ON h.id=s.hotel_id
             WHERE s.token_hash=? AND s.expires>?''', (token_hash(token), now_text())).fetchone()
-    if not row:
+    if not row or (row['role'] == 'recepcion' and not row['station_id']):
         return None
     user = {k: row[k] for k in ('id', 'rut', 'name', 'role')}
     user['station'] = ({'id': row['station_id'], 'name': row['station_name'],
@@ -423,6 +430,25 @@ def available_room(db, hotel, arrival, departure):
         'SELECT DISTINCT room FROM nights WHERE hotel_id=? AND night>=? AND night<?',
         (hotel, arrival, departure))}
     return next((n for n in range(1, 6) if n not in occupied), None)
+
+
+def availability(data, user):
+    try:
+        hotel = to_int(data.get('hotel_id'), 'Selecciona un hotel válido.', low=1)
+        arrival = date.fromisoformat(data.get('arrival', ''))
+        departure = date.fromisoformat(data.get('departure', ''))
+    except (ValueError, TypeError):
+        raise InputError('Selecciona un hotel y fechas válidas.')
+    check_stay(arrival, departure)
+    if user['role'] == 'recepcion' and hotel != local_hotel(user):
+        raise AccessError('Solo puedes consultar el hotel de tu estación.')
+    with connection() as db:
+        if not db.execute('SELECT id FROM hotels WHERE id=?', (hotel,)).fetchone():
+            raise InputError('El hotel no existe.')
+        occupied = db.execute(
+            'SELECT COUNT(DISTINCT room) FROM nights WHERE hotel_id=? AND night>=? AND night<?',
+            (hotel, arrival.isoformat(), departure.isoformat())).fetchone()[0]
+    return {'available': 5 - occupied}
 
 
 def alternative_hotels(db, hotel, arrival, departure):
@@ -777,6 +803,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == '/api/hotels':
                 with connection() as db:
                     rows = [dict(r) for r in db.execute('SELECT * FROM hotels ORDER BY id')]
+            elif path == '/api/availability':
+                query = parse_qs(urlsplit(self.path).query)
+                rows = availability({k: v[0] for k, v in query.items()}, user)
             elif path == '/api/reservations':
                 rows = list_reservations(user)
             elif path == '/api/clients':

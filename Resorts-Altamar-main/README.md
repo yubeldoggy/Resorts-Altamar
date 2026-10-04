@@ -113,7 +113,7 @@ Acepta el nombre del hotel, solo la ciudad (`"Valdivia"`) o su número (`11`). A
 - **Gerencia** ve toda la cadena; el filtro por hotel parte en el hotel de la estación.
 - **Clientes** no dependen de la estación: usan el portal desde cualquier lugar.
 
-Para demostrar otro hotel, cambia el nombre en `estacion.json`, cierra sesión y vuelve a entrar (no hace falta reiniciar). Si el archivo falta o el hotel no existe, recepción opera toda la cadena y el distintivo lo advierte.
+Para demostrar otro hotel, cambia el nombre en `estacion.json`, cierra sesión y vuelve a entrar (no hace falta reiniciar). Si el archivo falta o el hotel no existe, el inicio de sesión de recepción se rechaza. Gerencia conserva su acceso global.
 
 ## Servicios adicionales y cuenta (RF-04, RF-06 y RF-07)
 
@@ -135,3 +135,9 @@ Límites: funciona en un solo computador con `http://` local (sin HTTPS), el cob
 ## Material para presentar EV03
 
 Abre [docs/LEEME.md](docs/LEEME.md): arquitectura, tres diagramas UML, seguridad, resultado de 47 pruebas y guion para tres integrantes. La documentación distingue lo implementado de lo propuesto y no afirma certificación ISO ni cumplimiento legal integral.
+
+## Mejoras de la demostración (3 de octubre de 2026)
+
+- **Consultar disponibilidad:** selecciona hotel y fechas y pulsa el botón, sin necesidad de crear una reserva ni introducir un huésped. El cupo se comprueba de nuevo al confirmar.
+- **Actualización automática:** las reservas y sus estadísticas se consultan cada cinco segundos mientras la pestaña está visible. Se pausa con un diálogo abierto o mientras se usan los botones de una reserva. El botón Actualizar sigue disponible. Esto funciona entre sesiones conectadas al mismo servidor; no sincroniza instalaciones independientes.
+- **Estación obligatoria:** recepción no puede iniciar sesión sin un hotel válido en `estacion.json`. Las sesiones antiguas sin hotel dejan de ser aceptadas.
