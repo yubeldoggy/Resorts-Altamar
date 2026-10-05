@@ -33,8 +33,8 @@ Las cuentas de recepción y gerente no se crean desde la aplicación.
 
 ## Acceso y roles
 
-- **Cliente:** crea reservas a su nombre y solo ve y cancela las suyas.
-- **Recepción:** registra clientes, crea reservas para clientes con cuenta o huéspedes sin cuenta, y ve y cancela todas.
+- **Cliente:** crea reservas a su nombre, solo ve y cancela las suyas, y puede modificar las fechas de sus reservas confirmadas.
+- **Recepción:** registra clientes, crea reservas para clientes con cuenta o huéspedes sin cuenta, administra todas las reservas y registra check-in/check-out.
 - **Gerente:** ve y cancela todas las reservas y revisa la **actividad de seguridad**. No crea reservas.
 
 Los permisos se validan en el servidor, no solo en la pantalla.
@@ -43,8 +43,11 @@ Los permisos se validan en el servidor, no solo en la pantalla.
 
 - Al crear una reserva, el huésped o recepción puede agregar spa ($35.000), tour ($50.000) y servicio a la habitación ($18.000). Se admiten hasta 10 unidades de cada servicio.
 - Las reservas muestran sus noches, el costo del alojamiento, el subtotal de servicios y el total en pesos chilenos. La tarifa demostrativa es de $80.000 por noche.
-- En **Servicios** se pueden agregar, cambiar o quitar servicios de una reserva confirmada. Los cambios actualizan los subtotales.
-- **Comprobante** muestra fechas, huésped, alojamiento, servicios, cantidades y total. Es solo informativo: no procesa pagos ni emite una factura.
+- En **Servicios** se pueden agregar, cambiar o quitar servicios de una reserva confirmada o en curso. Los cambios actualizan los subtotales.
+- **Comprobante** muestra fechas, huésped, alojamiento, servicios, cantidades y total, y se puede imprimir. Es solo informativo: no procesa pagos ni emite una factura.
+- Si no hay cupo en un hotel, la aplicación sugiere hoteles disponibles de la misma región para las mismas fechas.
+- Recepción puede cambiar una reserva de **Confirmada** a **En curso** con check-in y de **En curso** a **Finalizada** con check-out. Las transiciones quedan registradas en la bitácora.
+- La lista permite buscar por huésped, hotel, código o fechas y filtrar por estado y rango de fechas.
 
 ## Seguridad aplicada
 
@@ -58,7 +61,7 @@ Los permisos se validan en el servidor, no solo en la pantalla.
 - **Validación de datos:** nombres solo con letras, espacios, apóstrofo, guion o punto. Todo lo que se muestra en pantalla se escapa para evitar inyección de HTML (XSS). Las consultas SQL usan parámetros.
 - **Cabeceras de seguridad:** `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` y `Cross-Origin-Opener-Policy`. El servidor no revela la versión de Python.
 - **Errores:** los errores inesperados muestran un mensaje genérico, sin detalles internos.
-- **Bitácora:** se registran inicios y cierres de sesión, accesos fallidos, bloqueos, registros de clientes y reservas creadas o canceladas. Solo gerencia puede verla.
+- **Bitácora:** se registran inicios y cierres de sesión, accesos fallidos, bloqueos, registros de clientes y cambios de reservas (fechas, servicios, cancelaciones y check-in/check-out). Solo gerencia puede verla.
 
 **Límites conocidos:** la aplicación funciona con `http://` local, así que el tráfico entre el navegador y el servidor no va cifrado; para publicarla haría falta HTTPS. Tampoco incluye recuperación de contraseña ni facturación o procesamiento de pagos. El bloqueo por intentos podría usarse para bloquear a propósito la cuenta de otra persona durante 5 minutos.
 

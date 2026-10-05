@@ -13,6 +13,7 @@ const AUDIT_NAMES = {
   inicio_sesion: 'Inicio de sesión', cierre_sesion: 'Cierre de sesión', acceso_fallido: 'Acceso fallido',
   acceso_bloqueado: 'Acceso bloqueado', registro_cliente: 'Registro de cliente', cliente_creado: 'Cliente creado por recepción',
   reserva_creada: 'Reserva creada', reserva_cancelada: 'Reserva cancelada', servicios_actualizados: 'Servicios actualizados',
+  reserva_checkin: 'Check-in registrado', reserva_checkout: 'Check-out registrado', fechas_actualizadas: 'Fechas modificadas',
 };
 const state = {user: null, rows: [], services: []};
 const money = value => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(value);
@@ -27,7 +28,11 @@ async function api(path, data){
   try { result = await response.json(); } catch { /* respuesta sin JSON */ }
   // Sesión vencida o ausente: se vuelve a la pantalla de acceso.
   if (response.status === 401 && !['login','me','register'].includes(path)) showAuth(result.error);
-  if (!response.ok) throw new Error(result.error || 'No se pudo completar la operación.');
+  if (!response.ok) {
+    const error = new Error(result.error || 'No se pudo completar la operación.');
+    error.alternatives = result.alternatives || [];
+    throw error;
+  }
   return result;
 }
 
@@ -103,7 +108,7 @@ async function showApp(user){
   $('#side').hidden=!canCreate;$('#layout').classList.toggle('single',!canCreate);
   $('#client-field').hidden=role!=='recepcion';$('#client-card').hidden=role!=='recepcion';
   $('#guest-field').hidden=role==='cliente';$('#guest').disabled=role==='cliente';
-  $('#search-box').hidden=role==='cliente';
+  $('#search-box').hidden=false;
   $('#list-title').textContent=role==='cliente'?'Mis reservas':'Registro de reservas';
   $('#audit-card').hidden=role!=='gerente';
   ['#message','#list-message','#client-message'].forEach(t=>message(t));
@@ -126,18 +131,21 @@ async function showApp(user){
 async function refresh(){state.rows=await api('reservations');render();}
 function render(){
   const rows=state.rows;
-  const active=rows.filter(r=>r.status==='Confirmada');
+  const active=rows.filter(r=>['Confirmada','En curso'].includes(r.status));
   $('#stat-active').textContent=active.length;
-  $('#stat-cancelled').textContent=rows.length-active.length;
+  $('#stat-cancelled').textContent=rows.filter(r=>r.status==='Cancelada').length;
   $('#stat-nights').textContent=active.reduce((sum,r)=>sum+nightsBetween(r.arrival,r.departure),0);
   const filter=$('input[name=filter]:checked').value;
   const term=$('#search-box').hidden?'':$('#search').value.trim().toLowerCase();
+  const from=$('#filter-from').value,to=$('#filter-to').value;
   const visible=rows.filter(r=>(filter==='all'||r.status===filter)&&
-    (!term||`${r.guest} ALT-${String(r.id).padStart(4,'0')} ${r.hotel} ${r.region}`.toLowerCase().includes(term)));
+    (!from||r.departure>from)&&(!to||r.arrival<=to)&&
+    (!term||`${r.guest} ALT-${String(r.id).padStart(4,'0')} ${r.hotel} ${r.region} ${r.arrival} ${r.departure}`.toLowerCase().includes(term)));
   if(!rows.length){$('#reservations').innerHTML=`<div class="empty"><strong>Aún no hay reservas</strong><span>${state.user?.role==='gerente'?'Aparecerán aquí cuando clientes o recepción las creen.':'Crea la primera con el formulario.'}</span></div>`;return;}
   if(!visible.length){$('#reservations').innerHTML='<div class="empty"><strong>Sin resultados</strong><span>Prueba con otro filtro o búsqueda.</span></div>';return;}
   $('#reservations').innerHTML=visible.map(r=>{
     const nights=nightsBetween(r.arrival,r.departure);const cancelled=r.status==='Cancelada';
+    const finalizada=r.status==='Finalizada';
     return `<article class="reservation${cancelled?' is-cancelled':''}">
       <div class="reservation-main">
         <div class="reservation-title"><h3>${escapeHTML(r.guest)}</h3><span class="code">ALT-${String(r.id).padStart(4,'0')}</span></div>
@@ -146,16 +154,21 @@ function render(){
         <p class="reservation-total">Alojamiento ${money(r.lodging_total)} · Servicios ${money(r.services_total)} · <strong>Total ${money(r.total)}</strong></p>
       </div>
       <div class="reservation-side">
-        <span class="badge${cancelled?' cancelled':''}">${escapeHTML(r.status)}</span>
+        <span class="badge${cancelled?' cancelled':finalizada?' finished':r.status==='En curso'?' ongoing':''}">${escapeHTML(r.status)}</span>
         <div class="reservation-actions">
           <button type="button" class="text-action" data-action="receipt" data-id="${r.id}">Comprobante</button>
-          ${cancelled?'':`<button type="button" class="text-action" data-action="services" data-id="${r.id}">Servicios</button><button type="button" class="cancel" data-action="cancel" data-id="${r.id}">Cancelar</button>`}
+          ${r.status==='Confirmada'?`<button type="button" class="text-action" data-action="edit-dates" data-id="${r.id}">Fechas</button>`:''}
+          ${['Confirmada','En curso'].includes(r.status)?`<button type="button" class="text-action" data-action="services" data-id="${r.id}">Servicios</button>`:''}
+          ${state.user?.role==='recepcion'&&r.status==='Confirmada'?`<button type="button" class="text-action" data-action="checkin" data-id="${r.id}">Check-in</button>`:''}
+          ${state.user?.role==='recepcion'&&r.status==='En curso'?`<button type="button" class="text-action" data-action="checkout" data-id="${r.id}">Check-out</button>`:''}
+          ${r.status!=='Cancelada'&&(state.user?.role!=='cliente'||r.status==='Confirmada')?`<button type="button" class="cancel" data-action="cancel" data-id="${r.id}">Cancelar</button>`:''}
         </div>
       </div>
     </article>`;}).join('');
 }
 $$('input[name=filter]').forEach(i=>i.addEventListener('change',render));
 $('#search').addEventListener('input',render);
+['#filter-from','#filter-to'].forEach(selector=>$(selector).addEventListener('change',render));
 
 async function loadClients(){
   const clients=await api('clients');
@@ -210,6 +223,37 @@ function showReceipt(reservation){
     <p class="hint">Comprobante informativo. No se realizó ningún pago.</p>`;
   $('#receipt-dialog').showModal();
 }
+function showDateEditor(reservation){
+  $('#dates-reservation').textContent=`ALT-${String(reservation.id).padStart(4,'0')} · ${reservation.guest} · ${reservation.hotel}`;
+  $('#dates-form').dataset.reservationId=reservation.id;
+  $('#edit-arrival').value=reservation.arrival;
+  $('#edit-departure').value=reservation.departure;
+  $('#edit-arrival').min=localDate();
+  message('#dates-message');
+  $('#date-availability-options').replaceChildren();
+  updateEditStayHint();
+  $('#dates-dialog').showModal();
+}
+function updateEditStayHint(){
+  const arrival=$('#edit-arrival').value;
+  const nextDate=new Date(arrival+'T12:00:00');nextDate.setDate(nextDate.getDate()+1);
+  const minimum=`${nextDate.getFullYear()}-${String(nextDate.getMonth()+1).padStart(2,'0')}-${String(nextDate.getDate()).padStart(2,'0')}`;
+  $('#edit-departure').min=minimum;
+  if($('#edit-departure').value<minimum)$('#edit-departure').value=minimum;
+  const nights=nightsBetween(arrival,$('#edit-departure').value);
+  $('#dates-hint').textContent=nights>0&&nights<=60?`Estadía de ${nights} ${nights===1?'noche':'noches'}.`:'La estadía debe durar entre 1 y 60 noches.';
+}
+function showHotelAlternatives(target, alternatives){
+  const container=$(target);
+  if(!alternatives.length){container.replaceChildren();return;}
+  container.innerHTML=`<p class="hint">Hoteles disponibles en la misma región:</p>${alternatives.map(hotel=>
+    `<button type="button" class="secondary alternative" data-hotel-id="${hotel.id}">${escapeHTML(hotel.name)} · Habitación ${hotel.room}</button>`).join('')}`;
+}
+function showDateAlternatives(target, alternatives){
+  const container=$(target);
+  container.innerHTML=alternatives.length?`<p class="hint">Otras opciones disponibles en la misma región:</p><ul>${alternatives.map(hotel=>
+    `<li>${escapeHTML(hotel.name)} · Habitación ${hotel.room}</li>`).join('')}</ul>`:'';
+}
 function showServicesEditor(reservation){
   $('#services-reservation').textContent=`ALT-${String(reservation.id).padStart(4,'0')} · ${reservation.guest}`;
   renderServicePicker('#services-editor',state.services,reservation.services);
@@ -249,9 +293,31 @@ $('#logout').addEventListener('click',async()=>{
 });
 $('#reservation-form').addEventListener('submit',async event=>{
   event.preventDefault();message('#message');
+  $('#availability-options').replaceChildren();
   await busy($('#save'),async()=>{
     try{const data=Object.fromEntries(new FormData(event.target));data.services=selectedServices('#booking-service-options');const result=await api('reservations',data);message('#message',result.message);resetGuest(event.target);renderServicePicker('#booking-service-options',state.services,[]);await refresh();}
-    catch(error){message('#message',error.message,'error');}
+    catch(error){message('#message',error.message,'error');showHotelAlternatives('#availability-options',error.alternatives);}
+  });
+});
+$('#availability-options').addEventListener('click',event=>{
+  const button=event.target.closest('[data-hotel-id]');if(!button)return;
+  $('#hotels').value=button.dataset.hotelId;
+  $('#reservation-form').requestSubmit();
+});
+$('#edit-arrival').addEventListener('change',updateEditStayHint);
+$('#edit-departure').addEventListener('change',updateEditStayHint);
+$('#dates-close').addEventListener('click',()=>$('#dates-dialog').close());
+$('#dates-form').addEventListener('submit',async event=>{
+  event.preventDefault();message('#dates-message');$('#date-availability-options').replaceChildren();
+  await busy($('#dates-save'),async()=>{
+    try{
+      const data=Object.fromEntries(new FormData(event.target));data.id=Number(event.target.dataset.reservationId);
+      const result=await api('reservation-dates',data);message('#list-message',result.message);
+      $('#dates-dialog').close();await refresh();
+    }catch(error){
+      message('#dates-message',error.message,'error');
+      showDateAlternatives('#date-availability-options',error.alternatives);
+    }
   });
 });
 $('#client-form').addEventListener('submit',async event=>{
@@ -278,7 +344,17 @@ $('#reservations').addEventListener('click',async event=>{
   const row=state.rows.find(r=>String(r.id)===button.dataset.id);
   if(!row)return;
   if(button.dataset.action==='receipt'){showReceipt(row);return;}
+  if(button.dataset.action==='edit-dates'){showDateEditor(row);return;}
   if(button.dataset.action==='services'){showServicesEditor(row);return;}
+  if(['checkin','checkout'].includes(button.dataset.action)){
+    await busy(button,async()=>{
+      try{
+        const result=await api('reservation-status',{id:row.id,action:button.dataset.action});
+        message('#list-message',result.message);await refresh();
+      }catch(error){message('#list-message',error.message,'error');}
+    });
+    return;
+  }
   if(button.dataset.action!=='cancel'||!await confirmCancel(row))return;
   await busy(button,async()=>{
     try{const result=await api('cancel',{id:row.id});message('#list-message',result.message);await refresh();if(state.user?.role==='gerente')await loadAudit();}
@@ -286,6 +362,7 @@ $('#reservations').addEventListener('click',async event=>{
   });
 });
 $('#services-close').addEventListener('click',()=>$('#services-dialog').close());
+$('#print-receipt').addEventListener('click',()=>window.print());
 $('#services-form').addEventListener('submit',async event=>{
   event.preventDefault();
   await busy($('#services-save'),async()=>{

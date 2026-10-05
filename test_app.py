@@ -69,6 +69,66 @@ class ReservationTests(BaseTest):
             with self.assertRaises(ValueError):
                 app.create_reservation(data, self.users['recepcion'])
 
+    def test_full_hotel_suggests_available_hotels_in_same_region(self):
+        for _ in range(5):
+            app.create_reservation(self.data, self.users['recepcion'])
+        with self.assertRaises(app.AvailabilityError) as error:
+            app.create_reservation(self.data, self.users['recepcion'])
+        self.assertTrue(error.exception.alternatives)
+        with app.connection() as db:
+            region = db.execute('SELECT region FROM hotels WHERE id=1').fetchone()[0]
+            regions = {row[0] for row in db.execute(
+                'SELECT region FROM hotels WHERE id IN (' + ','.join('?' for _ in error.exception.alternatives) + ')',
+                [item['id'] for item in error.exception.alternatives])}
+        self.assertEqual(regions, {region})
+
+    def test_update_dates_reassigns_room_and_preserves_inventory(self):
+        rid = app.create_reservation(self.data, self.users['recepcion'])['id']
+        updated = {**self.data, 'arrival': (date.today() + timedelta(days=3)).isoformat(),
+                   'departure': (date.today() + timedelta(days=5)).isoformat()}
+        result = app.update_reservation_dates(rid, updated['arrival'], updated['departure'],
+                                              self.users['recepcion'])
+        self.assertIn('Fechas actualizadas', result['message'])
+        with app.connection() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM nights WHERE reservation_id=?', (rid,)).fetchone()[0], 2)
+            self.assertEqual(tuple(db.execute(
+                'SELECT arrival,departure FROM reservations WHERE id=?', (rid,)).fetchone()),
+                (updated['arrival'], updated['departure']))
+
+    def test_failed_date_update_keeps_original_inventory(self):
+        rid = app.create_reservation(self.data, self.users['recepcion'])['id']
+        target = {'arrival': (date.today() + timedelta(days=5)).isoformat(),
+                  'departure': (date.today() + timedelta(days=7)).isoformat()}
+        for _ in range(5):
+            app.create_reservation({**self.data, **target}, self.users['recepcion'])
+        with self.assertRaises(app.AvailabilityError):
+            app.update_reservation_dates(rid, target['arrival'], target['departure'],
+                                         self.users['recepcion'])
+        with app.connection() as db:
+            row = db.execute('SELECT arrival,departure FROM reservations WHERE id=?', (rid,)).fetchone()
+            self.assertEqual(tuple(row), (self.data['arrival'], self.data['departure']))
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM nights WHERE reservation_id=?', (rid,)).fetchone()[0], 2)
+
+    def test_reception_checkin_checkout_transitions(self):
+        rid = app.create_reservation(self.data, self.users['recepcion'])['id']
+        self.assertIn('En curso', app.update_reservation_status(
+            rid, 'checkin', self.users['recepcion'])['message'])
+        self.assertIn('Finalizada', app.update_reservation_status(
+            rid, 'checkout', self.users['recepcion'])['message'])
+        self.assertEqual(app.list_reservations(self.users['recepcion'])[0]['status'], 'Finalizada')
+        with self.assertRaises(ValueError):
+            app.update_reservation_status(rid, 'checkin', self.users['recepcion'])
+        for role in ('cliente', 'gerente'):
+            with self.assertRaises(app.AccessError):
+                app.update_reservation_status(rid, 'checkout', self.users[role])
+
+    def test_finalized_reservation_rejects_service_edits(self):
+        rid = app.create_reservation(self.data, self.users['recepcion'])['id']
+        app.update_reservation_status(rid, 'checkin', self.users['recepcion'])
+        app.update_reservation_status(rid, 'checkout', self.users['recepcion'])
+        with self.assertRaises(ValueError):
+            app.update_reservation_services(rid, [], self.users['recepcion'])
+
     def test_services_and_receipt_totals(self):
         rid = app.create_reservation({**self.data, 'services': [
             {'id': 'spa', 'quantity': 2}, {'id': 'tour', 'quantity': 1},
@@ -177,6 +237,22 @@ class AccessTests(BaseTest):
         with self.assertRaises(app.AccessError):
             app.create_reservation(self.data, self.users['gerente'])
 
+    def test_manager_can_cancel_in_progress_and_finalized_reservations(self):
+        in_progress = app.create_reservation(self.data, self.users['recepcion'])['id']
+        app.update_reservation_status(in_progress, 'checkin', self.users['recepcion'])
+        app.cancel_reservation(in_progress, self.users['gerente'])
+
+        future = {**self.data, 'arrival': (date.today() + timedelta(days=3)).isoformat(),
+                  'departure': (date.today() + timedelta(days=5)).isoformat()}
+        finalized = app.create_reservation(future, self.users['recepcion'])['id']
+        app.update_reservation_status(finalized, 'checkin', self.users['recepcion'])
+        app.update_reservation_status(finalized, 'checkout', self.users['recepcion'])
+        app.cancel_reservation(finalized, self.users['gerente'])
+
+        statuses = {row['id']: row['status'] for row in app.list_reservations(self.users['gerente'])}
+        self.assertEqual(statuses[in_progress], 'Cancelada')
+        self.assertEqual(statuses[finalized], 'Cancelada')
+
 
 class RegistrationTests(BaseTest):
     new = {'rut': '12.345.678-5', 'name': 'María José Muñoz', 'password': 'Playa2026!'}
@@ -230,9 +306,16 @@ class AuditTests(BaseTest):
         with self.assertRaises(app.AccessError):
             app.login({'rut': '11.111.111-1', 'password': 'incorrecta'})
         rid = app.create_reservation(self.data, self.users['recepcion'])['id']
-        app.cancel_reservation(rid, self.users['gerente'])
+        app.update_reservation_dates(rid, self.data['arrival'], self.data['departure'], self.users['recepcion'])
+        app.update_reservation_status(rid, 'checkin', self.users['recepcion'])
+        app.update_reservation_status(rid, 'checkout', self.users['recepcion'])
+        cancelled_id = app.create_reservation(
+            {**self.data, 'arrival': (date.today() + timedelta(days=4)).isoformat(),
+             'departure': (date.today() + timedelta(days=6)).isoformat()}, self.users['recepcion'])['id']
+        app.cancel_reservation(cancelled_id, self.users['gerente'])
         actions = self.actions()
-        for action in ('inicio_sesion', 'acceso_fallido', 'reserva_creada', 'reserva_cancelada'):
+        for action in ('inicio_sesion', 'acceso_fallido', 'reserva_creada', 'fechas_actualizadas',
+                   'reserva_checkin', 'reserva_checkout', 'reserva_cancelada'):
             self.assertIn(action, actions)
 
     def test_only_manager_reads_audit(self):

@@ -199,14 +199,21 @@
             <legend class="sr-only">Filtrar por estado</legend>
             <label><input type="radio" name="filter" value="all" checked><span>Todas</span></label>
             <label><input type="radio" name="filter" value="Confirmada"><span>Confirmadas</span></label>
+            <label><input type="radio" name="filter" value="En curso"><span>En curso</span></label>
+            <label><input type="radio" name="filter" value="Finalizada"><span>Finalizadas</span></label>
             <label><input type="radio" name="filter" value="Cancelada"><span>Canceladas</span></label>
           </fieldset>
+          <div class="date-filter">
+            <label for="filter-from">Desde <input type="date" id="filter-from"></label>
+            <label for="filter-to">Hasta <input type="date" id="filter-to"></label>
+          </div>
           <div class="search" id="search-box">
             <label for="search" class="sr-only">Buscar reserva</label>
             <input type="search" id="search" placeholder="Buscar huésped, código u hotel" autocomplete="off">
           </div>
         </div>
         <p class="alert" id="list-message" role="status" aria-live="polite"></p>
+        <div id="availability-options" class="availability-options" aria-live="polite"></div>
         <div id="reservations"><p class="empty">Cargando reservas…</p></div>
       </section>
     </div>
@@ -240,6 +247,24 @@
   </form>
 </dialog>
 
+<dialog id="dates-dialog" aria-labelledby="dates-title">
+  <form id="dates-form">
+    <h2 id="dates-title">Modificar fechas</h2>
+    <p class="muted" id="dates-reservation"></p>
+    <div class="dates">
+      <div class="field"><label for="edit-arrival">Llegada</label><input name="arrival" id="edit-arrival" type="date" required></div>
+      <div class="field"><label for="edit-departure">Salida</label><input name="departure" id="edit-departure" type="date" required></div>
+    </div>
+    <p class="hint" id="dates-hint">La estadía debe durar entre 1 y 60 noches.</p>
+    <p class="alert" id="dates-message" role="status" aria-live="polite"></p>
+    <div id="date-availability-options" class="availability-options" aria-live="polite"></div>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" id="dates-close">Volver</button>
+      <button type="submit" class="primary" id="dates-save">Guardar fechas</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="services-dialog" aria-labelledby="services-title">
   <form id="services-form">
     <h2 id="services-title">Servicios de la reserva</h2>
@@ -260,7 +285,7 @@
   <form method="dialog">
     <h2 id="receipt-title">Comprobante de estadía</h2>
     <div id="receipt-content"></div>
-    <div class="dialog-actions"><button value="close" class="secondary">Cerrar</button></div>
+    <div class="dialog-actions"><button type="button" id="print-receipt" class="secondary" title="Imprimir comprobante">Imprimir</button><button value="close" class="secondary">Cerrar</button></div>
   </form>
 </dialog>
 
