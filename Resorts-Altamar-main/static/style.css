@@ -306,4 +306,7 @@ dialog h2{font-size:27px}.dialog-actions{flex-wrap:wrap}
 @media(max-width:1100px) and (min-width:801px){.layout{grid-template-columns:290px minmax(0,1fr);gap:24px}.reservation{flex-direction:column}.reservation-side{flex:auto;flex-direction:row;align-items:center}.reservation-side .secondary{width:auto}.auth-brand{padding:40px}}
 @media(max-width:800px){.layout{grid-template-columns:1fr}.auth{grid-template-columns:1fr}.auth-brand{padding:28px;border-right:0;border-bottom:4px solid #af7753;gap:25px}.auth-pitch{gap:15px}.pitch{font-size:38px}.facts{padding-top:16px}.auth-panel{padding:32px 24px;place-items:center}.content{padding:28px 22px}.stat{padding:0 18px}.stat strong{font-size:32px}}
 @media(max-width:560px){.topbar{min-height:80px;padding:14px 18px}.brand{font-size:28px}.stats{gap:0}.stat{display:grid;padding:0 10px;gap:8px}.stat-label{font-size:10px}.stat strong{font-size:31px}.heading h1{font-size:34px}.reservation-side{flex:auto;flex-direction:row;align-items:center}.reservation-side .secondary{width:auto}.reservation{gap:15px}.reservation h3{font-size:21px}#form-card{padding:22px}.station{border:0;padding:0}.facts{gap:24px}.facts strong{font-size:26px}}
-
+.reservation-people{font-size:12px;color:var(--ink-soft);overflow-wrap:anywhere}
+#guests-hint[data-type=error]{color:var(--danger)}
+.dates.guests{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.label-note{display:block;font-weight:400;color:var(--ink-soft);font-size:11px;white-space:nowrap}

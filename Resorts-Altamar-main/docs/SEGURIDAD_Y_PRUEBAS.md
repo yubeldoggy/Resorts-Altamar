@@ -2,7 +2,7 @@
 
 ## Resultado comprobado
 
-El **1 de octubre de 2026** se ejecutó la suite de `Resorts-Altamar-main`: **47 pruebas aprobadas, 0 fallos y 0 errores**, en 8,264 segundos en este equipo. La salida íntegra está en [RESULTADO_PRUEBAS.txt](RESULTADO_PRUEBAS.txt).
+El **5 de octubre de 2026** se ejecutó la suite de `Resorts-Altamar-main`: **58 pruebas aprobadas, 0 fallos y 0 errores**, en 5,422 segundos (Python 3.11.15, en una copia del código). La salida íntegra está en [RESULTADO_PRUEBAS.txt](RESULTADO_PRUEBAS.txt).
 
 Se utilizó una copia del código y bases temporales; no se modificaron las reservas reales. Las pruebas reducen las iteraciones de hash para ejecutarse más rápido. Este tiempo no representa una medición de rendimiento de producción.
 
@@ -21,7 +21,7 @@ Para repetir desde la carpeta que contiene esta versión de `app.py`:
 py -3 -m unittest -v
 ```
 
-El informe existente `PRUEBAS_SEGURIDAD.md` relata una campaña anterior de 1.006 peticiones y resultados antes/después. **Esa campaña no se repitió aquí**: este registro confirma únicamente la suite actual de 47 pruebas. No confundir pruebas automáticas con una auditoría completa.
+El informe existente `PRUEBAS_SEGURIDAD.md` relata una campaña anterior de 1.006 peticiones y resultados antes/después. **Esa campaña no se repitió aquí**: este registro confirma únicamente la suite actual de 58 pruebas. No confundir pruebas automáticas con una auditoría completa.
 
 ## Controles presentes y evidencia
 
@@ -79,6 +79,16 @@ No se midieron 300 usuarios concurrentes, disponibilidad anual ni tolerancia a f
 
 ## Revisión del 3 de octubre de 2026
 
-Tras agregar consulta de disponibilidad y bloquear recepción sin estación: **51 pruebas aprobadas, sin fallos ni errores**, en 14,487 segundos. Se ejecutaron en una copia del código con bases temporales. El registro de 47 pruebas y hashes anterior corresponde a la versión del 1 de octubre.
+Tras agregar consulta de disponibilidad y bloquear recepción sin estación: **51 pruebas aprobadas, sin fallos ni errores**, en 14,487 segundos. Se ejecutaron en una copia del código con bases temporales. El registro de 47 pruebas del 1 de octubre fue reemplazado por la ejecución del 5 de octubre.
 
 Las nuevas pruebas comprueban cupos sin crear reservas, hotel lleno y liberación al cancelar, consultas inválidas, restricciones de hotel, rechazo de login y sesiones antiguas sin estación y acceso HTTP autenticado. También se comprobó con Node la actualización automática: cambios recibidos, ausencia de cambios, pestaña oculta y descarte de respuestas después del cierre de sesión. No se realizó una nueva prueba visual de navegador en esta revisión.
+
+## Revisión del 5 de octubre de 2026
+
+Se agregaron a la reserva: adultos y niños (máximo 4 personas por habitación), teléfono chileno y correo de contacto. **55 pruebas aprobadas, sin fallos ni errores.** Las 4 pruebas nuevas comprueban que los datos se guardan normalizados, el límite de capacidad, el rechazo de teléfonos y correos inválidos o vacíos, y que el teléfono y el correo no se escriben en la bitácora. También se revisó en un navegador (Chromium) que el formulario bloquea datos inválidos y que la reserva muestra los nuevos datos.
+
+Además, **Consultar disponibilidad** ahora sugiere hoteles de la misma región cuando el hotel elegido no tiene cupo (RF-03). Una prueba nueva comprueba que las alternativas son de la misma región y que consultar no crea reservas. Total: **56 pruebas aprobadas**. También se revisó en el navegador: con el hotel lleno se muestran las alternativas, y al elegir una se crea la reserva en ese hotel.
+
+Por último, se agregó el campo **bebés** (menores de 2 años, máximo 1 por habitación, en cuna; no cuenta en el máximo de 4 personas) y se restringió el teléfono a celulares (empiezan con 9) y fijos (empiezan con su código de área, 2 a 7); antes se aceptaba, por ejemplo, `+56 8 6567 6788`. Dos pruebas nuevas cubren ambos casos. Total: **58 pruebas aprobadas**.
+
+Regla final de capacidad: 4 puestos de adulto por habitación; cada puesto libre admite 2 niños (por ejemplo, 2 adultos y 4 niños, o 1 adulto y 6 niños); hasta 2 bebés en cuna sin ocupar puesto; siempre al menos 1 adulto. Las pruebas de capacidad se actualizaron a esta regla. Total: **58 pruebas aprobadas**.

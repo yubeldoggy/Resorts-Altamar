@@ -25,6 +25,9 @@ REGION_RATES = {'Norte': 85000, 'Centro': 95000, 'Sur': 90000, 'Austral': 110000
 DEFAULT_SERVICES = [('Spa', 45000), ('Tour guiado', 30000),
                     ('Servicio a la habitación', 15000), ('Programa de millas', 0)]
 STAY_STATUSES = ('Confirmada', 'Alojado')
+MAX_GUESTS_PER_ROOM = 4  # Puestos de adulto por habitación.
+CHILDREN_PER_FREE_SPOT = 2  # Cada puesto de adulto sin usar admite 2 niños.
+MAX_INFANTS_PER_ROOM = 2  # Bebés menores de 2 años en cuna; no ocupan puesto.
 MAX_ADVANCE_DAYS = 730  # No se aceptan reservas con más de 2 años de anticipación.
 REGISTER_LIMIT, REGISTER_WINDOW = 10, 600  # Registros públicos por equipo cada 10 minutos.
 ROLES = ('cliente', 'recepcion', 'gerente')
@@ -266,7 +269,9 @@ def initialize():
                     db.execute(f'ALTER TABLE {table} ADD COLUMN {column} {definition}')
         add_columns('reservations', [('user_id', 'INTEGER REFERENCES users(id)'),
                                      ('created_by', 'INTEGER REFERENCES users(id)'),
-                                     ('rate', 'INTEGER'), ('total', 'INTEGER')])
+                                     ('rate', 'INTEGER'), ('total', 'INTEGER'),
+                                     ('adults', 'INTEGER'), ('children', 'INTEGER'), ('infants', 'INTEGER'),
+                                     ('phone', 'TEXT'), ('email', 'TEXT')])
         add_columns('hotels', [('rate', 'INTEGER')])
         add_columns('sessions', [('hotel_id', 'INTEGER REFERENCES hotels(id)'), ('station_ms', 'REAL')])
         if not db.execute('SELECT 1 FROM hotels LIMIT 1').fetchone():
@@ -448,6 +453,10 @@ def availability(data, user):
         occupied = db.execute(
             'SELECT COUNT(DISTINCT room) FROM nights WHERE hotel_id=? AND night>=? AND night<?',
             (hotel, arrival.isoformat(), departure.isoformat())).fetchone()[0]
+        if occupied >= 5:
+            # RF-03: sin cupo, se sugieren automáticamente hoteles de la misma región.
+            return {'available': 0, 'alternatives': alternative_hotels(
+                db, hotel, arrival.isoformat(), departure.isoformat())}
     return {'available': 5 - occupied}
 
 
@@ -551,7 +560,8 @@ def reception_action(rid, action, user):
 
 def list_reservations(user):
     query = '''SELECT r.id, r.hotel_id, r.guest, r.arrival, r.departure, r.room, r.status, r.user_id,
-        r.total, h.name hotel, h.region FROM reservations r JOIN hotels h ON h.id=r.hotel_id'''
+        r.total, r.adults, r.children, r.infants, r.phone, r.email, h.name hotel, h.region
+        FROM reservations r JOIN hotels h ON h.id=r.hotel_id'''
     params = ()
     if user['role'] == 'cliente':
         query, params = query + ' WHERE r.user_id=?', (user['id'],)
@@ -560,6 +570,41 @@ def list_reservations(user):
         query, params = query + ' WHERE r.hotel_id=?', (local_hotel(user),)
     with connection() as db:
         return [dict(r) for r in db.execute(query + ' ORDER BY r.id DESC', params)]
+
+
+def clean_guests(data):
+    """Capacidad por habitación: 4 puestos de adulto.
+    - Siempre viaja al menos 1 adulto: niños y bebés no pueden ir solos.
+    - Cada puesto de adulto sin usar admite 2 niños (2 adultos + 4 niños, 1 adulto + 6 niños).
+    - Hasta 2 bebés menores de 2 años, en cuna; no ocupan puesto y basta 1 adulto."""
+    adults = to_int(data.get('adults'), 'Debe viajar al menos 1 adulto (máximo 4) por habitación.',
+                    1, MAX_GUESTS_PER_ROOM)
+    max_children = (MAX_GUESTS_PER_ROOM - adults) * CHILDREN_PER_FREE_SPOT
+    children = to_int(data.get('children', 0), f'Con {adults} adulto(s) caben entre 0 y {max_children} niños.',
+                      0, max_children)
+    infants = to_int(data.get('infants', 0), f'Indica entre 0 y {MAX_INFANTS_PER_ROOM} bebés por habitación.',
+                     0, MAX_INFANTS_PER_ROOM)
+    return adults, children, infants
+
+
+def clean_phone(value):
+    """Teléfono chileno de 9 dígitos, con o sin +56. Se guarda como +56XXXXXXXXX.
+    Celulares empiezan con 9; fijos, con su código de área (2 en Santiago; 32, 41, 61, etc. en regiones).
+    Se rechazan los que empiezan con 0, 1 u 8 (no corresponden a celulares ni fijos geográficos)."""
+    digits = re.sub(r'[\s().-]', '', value) if isinstance(value, str) else ''
+    match = re.fullmatch(r'(?:\+?56)?([2-79][0-9]{8})', digits, re.ASCII)
+    if not match:
+        raise InputError('Escribe un teléfono chileno válido, por ejemplo +56 9 1234 5678.')
+    return '+56' + match.group(1)
+
+
+def clean_email(value):
+    email = value.strip() if isinstance(value, str) else ''
+    if (len(email) > 254 or not re.fullmatch(r"[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}", email, re.ASCII)
+            or '..' in email):
+        raise InputError('Escribe un correo válido, por ejemplo nombre@correo.cl.')
+    local, domain = email.rsplit('@', 1)
+    return f'{local}@{domain.lower()}'
 
 
 def create_reservation(data, user):
@@ -582,6 +627,8 @@ def create_reservation(data, user):
     except (KeyError, ValueError, TypeError):
         raise InputError('Selecciona un hotel y fechas válidas.')
     check_stay(arrival, departure)
+    adults, children, infants = clean_guests(data)
+    phone, email = clean_phone(data.get('phone')), clean_email(data.get('email'))
     with connection() as db:
         # El bloqueo precede a la consulta: dos solicitudes no pueden tomar el mismo cupo.
         db.execute('BEGIN IMMEDIATE')
@@ -598,14 +645,16 @@ def create_reservation(data, user):
         if room is None:
             raise NoAvailability(alternative_hotels(db, hotel, arrival.isoformat(), departure.isoformat()))
         # La tarifa se copia al reservar: un cambio de precio posterior no altera esta reserva.
-        rid = db.execute('''INSERT INTO reservations(hotel_id,guest,arrival,departure,room,user_id,created_by,rate)
-            VALUES(?,?,?,?,?,?,?,(SELECT rate FROM hotels WHERE id=?))''',
+        rid = db.execute('''INSERT INTO reservations(hotel_id,guest,arrival,departure,room,user_id,created_by,rate,
+            adults,children,infants,phone,email) VALUES(?,?,?,?,?,?,?,(SELECT rate FROM hotels WHERE id=?),?,?,?,?,?)''',
                          (hotel, guest, arrival.isoformat(), departure.isoformat(),
-                          room, owner, user['id'], hotel)).lastrowid
+                          room, owner, user['id'], hotel, adults, children, infants, phone, email)).lastrowid
         db.executemany('INSERT INTO nights VALUES(?,?,?,?)',
                        [(hotel, room, (arrival + timedelta(days=i)).isoformat(), rid)
                         for i in range((departure - arrival).days)])
-        audit(db, 'reserva_creada', user['id'], f'ALT-{rid:04d} · {hotel_row["name"]} · {guest}')
+        # La bitácora guarda la cantidad de personas, no los datos de contacto.
+        audit(db, 'reserva_creada', user['id'],
+              f'ALT-{rid:04d} · {hotel_row["name"]} · {guest} · {adults + children} personas' + (f' + {infants} bebé(s)' if infants else ''))
         return {'message': f'Reserva ALT-{rid:04d} creada. Habitación {room}.', 'id': rid}
 
 

@@ -109,6 +109,8 @@ async function showApp(user){
   $('#side').hidden=!canCreate;$('#layout').classList.toggle('single',!canCreate);
   $('#client-field').hidden=role!=='recepcion';$('#client-card').hidden=role!=='recepcion';
   $('#guest-field').hidden=role==='cliente';$('#guest').disabled=role==='cliente';
+  // El cliente escribe sus propios datos (el navegador puede autocompletarlos); recepción escribe los del huésped.
+  $('#phone').autocomplete=role==='cliente'?'tel':'off';$('#email').autocomplete=role==='cliente'?'email':'off';
   $('#search-box').hidden=role==='cliente';
   $('#list-title').textContent=role==='cliente'?'Mis reservas':'Registro de reservas';
   $('#audit-card').hidden=role!=='gerente';$('#services-card').hidden=role!=='gerente';
@@ -172,6 +174,7 @@ function render(){
         <div class="reservation-title"><h3>${escapeHTML(r.guest)}</h3><span class="code">ALT-${String(r.id).padStart(4,'0')}</span></div>
         <p class="reservation-place">${escapeHTML(r.hotel)} <span>· ${escapeHTML(r.region)} · Habitación ${r.room}</span></p>
         <p class="reservation-dates"><span>${dateText(r.arrival)}</span><span aria-hidden="true">→</span><span>${dateText(r.departure)}</span><span class="nights">${nights} ${nights===1?'noche':'noches'}</span></p>
+        ${r.adults!=null?`<p class="reservation-people">${guestsText(r.adults,r.children,r.infants)} · ${escapeHTML(phoneText(r.phone))} · ${escapeHTML(r.email)}</p>`:''}
         ${r.status==='Finalizada'&&r.total!=null?`<p class="charged">Cobrado: <b>${clp(r.total)}</b></p>`:''}
       </div>
       <div class="reservation-side">
@@ -214,10 +217,29 @@ $('#departure').addEventListener('change',updateStayHint);
 
 // Limpia el nombre sin marcarlo como error: reset() borra el estado de interacción y luego se restauran los demás campos.
 function resetGuest(form){
-  const keep=['client','hotels','arrival','departure'].map(id=>[id,document.getElementById(id).value]);
-  form.reset();keep.forEach(([id,value])=>{document.getElementById(id).value=value;});
+  // El cliente conserva su teléfono y correo para la próxima reserva; en recepción se limpian.
+  const ids=['client','hotels','arrival','departure'].concat(state.user?.role==='cliente'?['phone','email']:[]);
+  const keep=ids.map(id=>[id,document.getElementById(id).value]);
+  form.reset();keep.forEach(([id,value])=>{document.getElementById(id).value=value;});checkGuests();
   syncGuestField();updateStayHint();
 }
+
+/* ---------- Personas y contacto ---------- */
+const guestsText=(a,c,b)=>`${a} ${a===1?'adulto':'adultos'}${c?` · ${c} ${c===1?'niño':'niños'}`:''}${b?` · ${b} ${b===1?'bebé':'bebés'}`:''}`;
+const phoneText=p=>/^\+56\d{9}$/.test(p||'')?`+56 ${p[3]} ${p.slice(4,8)} ${p.slice(8)}`:(p||'');
+// 4 puestos de adulto; cada puesto libre admite 2 niños. Se avisa antes de enviar (el servidor valida lo mismo).
+function checkGuests(){
+  const adults=Number($('#adults').value||0), children=Number($('#children').value||0);
+  const max=Math.max(0,(4-Math.min(Math.max(adults,1),4))*2);
+  $('#children').max=String(max);
+  const bad=children>max;
+  $('#children').setCustomValidity(bad?`Con ${adults} ${adults===1?'adulto':'adultos'} caben hasta ${max} niños.`:'');
+  $('#guests-hint').dataset.type=bad?'error':'';
+}
+['#adults','#children'].forEach(s=>$(s).addEventListener('input',checkGuests));
+checkGuests();
+// Teléfono chileno: 9 dígitos, con o sin +56 (el servidor aplica la misma regla).
+$('#phone').addEventListener('input',()=>{const d=$('#phone').value.replace(/[\s().-]/g,'');$('#phone').setCustomValidity(!d||/^(\+?56)?[2-79]\d{8}$/.test(d)?'':'Escribe un teléfono chileno, por ejemplo +56 9 1234 5678.');});
 
 /* ---------- Bitácora (gerente) ---------- */
 async function loadAudit(){
@@ -417,6 +439,9 @@ $('#check-availability').addEventListener('click',event=>busy(event.currentTarge
   try{
     const result=await api('availability?'+query);
     if(version!==availabilityVersion||state.user!==user)return;
+    $('#alternatives').innerHTML='';message('#message');
+    const local=user?.role==='recepcion'&&user.station;
+    showAlternatives('#alternatives',result.alternatives,!local,local?'El huésped puede reservar en esos hoteles desde el portal de clientes o en su recepción.':'');
     message('#availability-result',result.available?`${result.available} habitaciones disponibles. El cupo se confirma al crear la reserva.`:'Sin habitaciones disponibles para esas fechas.');
   }catch(error){if(version===availabilityVersion&&state.user===user)message('#availability-result',error.message,'error');}
 }));

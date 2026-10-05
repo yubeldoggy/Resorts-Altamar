@@ -1,6 +1,6 @@
-Ejecucion: 2026-10-01 (America/Santiago)
+Ejecucion: 2026-10-05 (America/Santiago)
 Version revisada: Resorts-Altamar-main
-Python: 3.12.14
+Python: 3.11.15
 
 test_account_locks_after_five_failures (test_app.AccessTests.test_account_locks_after_five_failures) ... ok
 test_client_only_sees_and_cancels_own_reservations (test_app.AccessTests.test_client_only_sees_and_cancels_own_reservations) ... ok
@@ -13,6 +13,17 @@ test_unknown_rut_also_locks (test_app.AccessTests.test_unknown_rut_also_locks) .
 test_wrong_password_and_unknown_rut_are_rejected (test_app.AccessTests.test_wrong_password_and_unknown_rut_are_rejected) ... ok
 test_only_manager_reads_audit (test_app.AuditTests.test_only_manager_reads_audit) ... ok
 test_security_events_are_logged (test_app.AuditTests.test_security_events_are_logged) ... ok
+test_availability_does_not_book_and_tracks_cancellations (test_app.AvailabilityTests.test_availability_does_not_book_and_tracks_cancellations) ... ok
+test_full_hotel_suggests_regional_alternatives (test_app.AvailabilityTests.test_full_hotel_suggests_regional_alternatives) ... ok
+test_invalid_queries_and_local_scope (test_app.AvailabilityTests.test_invalid_queries_and_local_scope) ... ok
+test_missing_station_denies_login_and_old_session (test_app.AvailabilityTests.test_missing_station_denies_login_and_old_session) ... ok
+test_capacity_per_room (test_app.GuestDetailsTests.test_capacity_per_room) ... ok
+test_contact_is_required_and_validated (test_app.GuestDetailsTests.test_contact_is_required_and_validated) ... ok
+test_contact_not_written_to_audit_log (test_app.GuestDetailsTests.test_contact_not_written_to_audit_log) ... ok
+test_infants_need_one_adult_and_max_two (test_app.GuestDetailsTests.test_infants_need_one_adult_and_max_two) ... ok
+test_phone_must_be_mobile_or_landline (test_app.GuestDetailsTests.test_phone_must_be_mobile_or_landline) ... ok
+test_reservation_stores_guests_and_contact (test_app.GuestDetailsTests.test_reservation_stores_guests_and_contact) ... ok
+test_availability_http_requires_session_and_validates_input (test_app.HttpSecurityTests.test_availability_http_requires_session_and_validates_input) ... ok
 test_cross_site_requests_rejected (test_app.HttpSecurityTests.test_cross_site_requests_rejected) ... ok
 test_malformed_bodies_get_generic_400 (test_app.HttpSecurityTests.test_malformed_bodies_get_generic_400) ... ok
 test_other_methods_and_paths (test_app.HttpSecurityTests.test_other_methods_and_paths) ... ok
@@ -51,6 +62,6 @@ test_station_accepts_id_or_city (test_app.StationTests.test_station_accepts_id_o
 test_station_detected_fast_for_staff_only (test_app.StationTests.test_station_detected_fast_for_staff_only) ... ok
 
 ----------------------------------------------------------------------
-Ran 47 tests in 8.264s
+Ran 58 tests in 5.422s
 
 OK

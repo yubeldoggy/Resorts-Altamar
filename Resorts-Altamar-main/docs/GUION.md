@@ -21,7 +21,7 @@ Propuesta de 6 a 8 minutos, ajustable al tiempo que asigne el docente. Practique
 
 1. Agregar un servicio a la estadía y mostrar su cuenta.
 2. Registrar check-out: total = noches × tarifa + servicios. Es un registro de demostración, no un pago real ni factura.
-3. Mostrar `RESULTADO_PRUEBAS.txt`: 47 pruebas aprobadas en la revisión del 1 de octubre de 2026.
+3. Mostrar `RESULTADO_PRUEBAS.txt`: 58 pruebas aprobadas en la revisión del 5 de octubre de 2026.
 4. Abrir `SEGURIDAD_Y_PRUEBAS.md` y señalar una corrección con su prueba de regresión.
 5. Decir: «Usamos prácticas de confidencialidad, integridad y disponibilidad. No contamos con certificación ISO ni una auditoría legal completa».
 
@@ -39,7 +39,7 @@ Propuesta de 6 a 8 minutos, ajustable al tiempo que asigne el docente. Practique
 
 **¿Cómo evitan la sobreventa?** Consultan y reservan dentro de una transacción; la clave única de noches evita duplicar la habitación.
 
-**¿Las 47 pruebas demuestran que nunca falla?** No. Cubren los casos definidos, incluyendo algunos escenarios concurrentes y de seguridad.
+**¿Las 58 pruebas demuestran que nunca falla?** No. Cubren los casos definidos, incluyendo algunos escenarios concurrentes y de seguridad.
 
 **¿La estación detecta GPS?** No. Lee una configuración del equipo; es una simulación sencilla del contexto físico del hotel.
 

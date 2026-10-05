@@ -22,7 +22,8 @@ class BaseTest(unittest.TestCase):
         self.users = {role: self.user(rut, password) for rut, _, role, password in app.TEST_ACCOUNTS}
         self.data = {'guest': 'Cliente de prueba', 'hotel_id': 1,
                      'arrival': date.today().isoformat(),
-                     'departure': (date.today() + timedelta(days=2)).isoformat()}
+                     'departure': (date.today() + timedelta(days=2)).isoformat(),
+                     'adults': 2, 'children': 1, 'phone': '+56 9 1234 5678', 'email': 'huesped@correo.cl'}
 
     def tearDown(self):
         app.DATABASE, app.PBKDF2_ITERATIONS, app.STATION_FILE = self.original
@@ -508,6 +509,18 @@ class AvailabilityTests(BaseTest):
         app.cancel_reservation(ids[0], user)
         self.assertEqual(app.availability(self.data, user)['available'], 1)
 
+    def test_full_hotel_suggests_regional_alternatives(self):
+        user = self.users['cliente']
+        self.assertNotIn('alternatives', app.availability(self.data, user))
+        for hotel in (1, 2):
+            for _ in range(5):
+                app.create_reservation({**self.data, 'hotel_id': hotel}, user)
+        result = app.availability(self.data, user)
+        self.assertEqual(result['available'], 0)
+        self.assertEqual({h['id'] for h in result['alternatives']}, {3, 4, 5})
+        self.assertTrue(all(h['region'] == 'Norte' for h in result['alternatives']))
+        self.assertEqual(len(app.list_reservations(user)), 10)  # consultar no reserva
+
     def test_invalid_queries_and_local_scope(self):
         for data in ({**self.data, 'hotel_id': 999}, {**self.data, 'arrival': 'bad'},
                      {**self.data, 'departure': self.data['arrival']}):
@@ -525,6 +538,63 @@ class AvailabilityTests(BaseTest):
         with app.connection() as db:
             token = app.start_session(db, self.users['recepcion']['id'])
         self.assertIsNone(app.session_user(token))
+
+
+class GuestDetailsTests(BaseTest):
+    """Datos de la reserva: adultos, niños, bebés, teléfono y correo."""
+
+    def test_reservation_stores_guests_and_contact(self):
+        rid = app.create_reservation({**self.data, 'phone': '9 8765 4321', 'email': ' Ana@Correo.CL '},
+                                     self.users['cliente'])['id']
+        row = next(r for r in app.list_reservations(self.users['cliente']) if r['id'] == rid)
+        self.assertEqual((row['adults'], row['children']), (2, 1))
+        self.assertEqual((row['phone'], row['email']), ('+56987654321', 'Ana@correo.cl'))
+
+    def test_capacity_per_room(self):
+        # 4 puestos de adulto; cada puesto libre admite 2 niños; siempre al menos 1 adulto.
+        user = self.users['cliente']
+        for adults, children in [(0, 2), (0, 0), (5, 0), (4, 1), (3, 3), (2, 5), (1, 7), (2, -1)]:
+            with self.assertRaises(app.InputError, msg=(adults, children)):
+                app.create_reservation({**self.data, 'adults': adults, 'children': children}, user)
+        for adults, children in [(4, 0), (3, 2), (2, 4), (1, 6)]:
+            self.assertTrue(app.create_reservation({**self.data, 'adults': adults, 'children': children}, user)['id'])
+
+    def test_infants_need_one_adult_and_max_two(self):
+        user = self.users['cliente']
+        rid = app.create_reservation({**self.data, 'adults': 1, 'children': 6, 'infants': 2}, user)['id']
+        row = next(r for r in app.list_reservations(user) if r['id'] == rid)
+        self.assertEqual((row['adults'], row['children'], row['infants']), (1, 6, 2))
+        self.assertTrue(app.create_reservation({**self.data, 'adults': 4, 'children': 0, 'infants': 2}, user)['id'])
+        for change in ({'infants': 3}, {'infants': -1}, {'infants': '1.5'}, {'infants': None},
+                       {'adults': 0, 'children': 0, 'infants': 1}):
+            with self.assertRaises(app.InputError, msg=change):
+                app.create_reservation({**self.data, **change}, user)
+
+    def test_phone_must_be_mobile_or_landline(self):
+        valid = {'+56 9 8765 4321': '+56987654321', '2 2421 3146': '+56224213146', '+56 32 212 3456': '+56322123456'}
+        for raw, stored in valid.items():
+            self.assertEqual(app.clean_phone(raw), stored)
+        for raw in ('+56 8 6567 6788', '+56 1 2345 6789', '0 2421 31461', '+56 9 1234 567'):
+            with self.assertRaises(app.InputError, msg=raw):
+                app.clean_phone(raw)
+
+    def test_contact_is_required_and_validated(self):
+        bad = [{'phone': ''}, {'phone': '12345'}, {'phone': '+56 1 2345 6789'}, {'phone': '<b>9</b>'},
+               {'email': ''}, {'email': 'sin-arroba'}, {'email': 'a@b'}, {'email': '<script>@x.cl'},
+               {'adults': None}, {'adults': '2.5'}]
+        for change in bad:
+            with self.assertRaises(app.InputError, msg=change):
+                app.create_reservation({**self.data, **change}, self.users['cliente'])
+        with app.connection() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM reservations').fetchone()[0], 0)
+
+    def test_contact_not_written_to_audit_log(self):
+        app.create_reservation(self.data, self.users['cliente'])
+        with app.connection() as db:
+            detail = db.execute("SELECT detail FROM audit WHERE action='reserva_creada'").fetchone()[0]
+        self.assertIn('3 personas', detail)
+        self.assertNotIn('huesped@correo.cl', detail)
+        self.assertNotIn('912345678', detail)
 
 
 if __name__ == '__main__':

@@ -134,10 +134,18 @@ Límites: funciona en un solo computador con `http://` local (sin HTTPS), el cob
 
 ## Material para presentar EV03
 
-Abre [docs/LEEME.md](docs/LEEME.md): arquitectura, tres diagramas UML, seguridad, resultado de 47 pruebas y guion para tres integrantes. La documentación distingue lo implementado de lo propuesto y no afirma certificación ISO ni cumplimiento legal integral.
+Abre [docs/LEEME.md](docs/LEEME.md): arquitectura, tres diagramas UML, seguridad, resultado de 58 pruebas y guion para tres integrantes. La documentación distingue lo implementado de lo propuesto y no afirma certificación ISO ni cumplimiento legal integral.
 
 ## Mejoras de la demostración (3 de octubre de 2026)
 
 - **Consultar disponibilidad:** selecciona hotel y fechas y pulsa el botón, sin necesidad de crear una reserva ni introducir un huésped. El cupo se comprueba de nuevo al confirmar.
 - **Actualización automática:** las reservas y sus estadísticas se consultan cada cinco segundos mientras la pestaña está visible. Se pausa con un diálogo abierto o mientras se usan los botones de una reserva. El botón Actualizar sigue disponible. Esto funciona entre sesiones conectadas al mismo servidor; no sincroniza instalaciones independientes.
 - **Estación obligatoria:** recepción no puede iniciar sesión sin un hotel válido en `estacion.json`. Las sesiones antiguas sin hotel dejan de ser aceptadas.
+
+## Datos de la reserva (5 de octubre de 2026)
+
+- **Personas:** cada habitación tiene **4 puestos de adulto** (18 años o más). Cada puesto que no usa un adulto admite **2 niños** (de 2 a 17 años): 4 adultos y 0 niños, 3 y 2, 2 y 4, o 1 y 6. Además, hasta **2 bebés** menores de 2 años en cuna, que no ocupan puesto. Siempre debe viajar al menos 1 adulto: niños y bebés no pueden reservar solos. La tarifa por noche no cambia según la cantidad de personas.
+- **Contacto:** teléfono chileno de 9 dígitos, celular (empieza con 9, por ejemplo `+56 9 1234 5678`) o fijo (empieza con su código de área, por ejemplo `+56 2 2421 3146`); se rechazan los que empiezan con 0, 1 u 8. Se guarda como `+56XXXXXXXXX`. También se pide correo electrónico; ambos son obligatorios. Se validan en el navegador y de nuevo en el servidor.
+- El teléfono y el correo **no se escriben en la bitácora**; allí solo queda la cantidad de personas.
+- Las reservas creadas antes de este cambio no tienen estos datos y se muestran sin esa línea.
+- **Consultar disponibilidad sin cupo (RF-03):** si el hotel no tiene habitaciones para esas fechas, se muestran automáticamente los hoteles de la misma región con cupo. El cliente puede elegir uno y presionar Crear reserva.

@@ -145,7 +145,25 @@
               <div class="field"><label for="departure">Salida</label><input name="departure" id="departure" type="date" required></div>
             </div>
             <p class="hint" id="stay-hint">Se asignará una habitación disponible. Cada hotel tiene 5 habitaciones de demostración.</p>
-            <button type="button" id="check-availability">Consultar disponibilidad</button>
+            <div class="dates guests">
+              <div class="field"><label for="adults">Adultos <span class="label-note">18+ años</span></label><input name="adults" id="adults" type="number" min="1" max="4" step="1" value="2" required inputmode="numeric"></div>
+              <div class="field"><label for="children">Niños <span class="label-note">2–17 años</span></label><input name="children" id="children" type="number" min="0" max="6" step="1" value="0" required inputmode="numeric"></div>
+              <div class="field"><label for="infants">Bebés <span class="label-note">0–1 año</span></label><input name="infants" id="infants" type="number" min="0" max="2" step="1" value="0" required inputmode="numeric"></div>
+            </div>
+            <p class="hint" id="guests-hint">Cada habitación tiene 4 puestos de adulto; cada puesto libre admite 2 niños (por ejemplo, 2 adultos y 4 niños). Hasta 2 bebés en cuna, sin ocupar puesto. Debe viajar al menos 1 adulto.</p>
+            <div class="field">
+              <label for="phone">Teléfono de contacto</label>
+              <input name="phone" id="phone" type="tel" required maxlength="20" autocomplete="tel" inputmode="tel"
+                     placeholder="+56 9 1234 5678" aria-errormessage="phone-error">
+              <p class="field-error" id="phone-error">Escribe un teléfono chileno, por ejemplo +56 9 1234 5678.</p>
+            </div>
+            <div class="field">
+              <label for="email">Correo de contacto</label>
+              <input name="email" id="email" type="email" required maxlength="254" autocomplete="email"
+                     placeholder="nombre@correo.cl" aria-errormessage="email-error">
+              <p class="field-error" id="email-error">Escribe un correo válido, por ejemplo nombre@correo.cl.</p>
+            </div>
+            <button type="button" id="check-availability" class="secondary">Consultar disponibilidad</button>
             <p class="hint" id="availability-result" role="status"></p>
             <button class="primary" type="submit" id="save">Crear reserva <span aria-hidden="true">→</span></button>
             <p class="alert" id="message" role="status" aria-live="polite"></p>

@@ -22,6 +22,11 @@ classDiagram
     class Reserva {
         id: int
         guest: str
+        adults: int
+        children: int
+        infants: int
+        phone: str
+        email: str
         arrival: date
         departure: date
         room: int
@@ -57,7 +62,7 @@ classDiagram
 
 Correspondencia: `Usuario=users`, `Hotel=hotels`, `Reserva=reservations`, `NocheOcupada=nights`, `Servicio=services`, `ServicioContratado=reservation_services`. No existe tabla Habitación: `room` identifica una de cinco habitaciones por hotel. `region` es un atributo del hotel. Se omiten sesiones y bitácora para mantener legible el modelo de negocio.
 
-`user_id` admite nulo por compatibilidad con reservas antiguas. En una reserva nueva de huésped sin cuenta, el código asigna como propietario al recepcionista creador. Por eso Usuario no equivale siempre al huésped. El precio se copia en cada contratación para conservarlo aunque cambie el catálogo.
+`user_id` admite nulo por compatibilidad con reservas antiguas. En una reserva nueva de huésped sin cuenta, el código asigna como propietario al recepcionista creador. Por eso Usuario no equivale siempre al huésped. El precio se copia en cada contratación para conservarlo aunque cambie el catálogo. `adults`, `children`, `infants`, `phone` y `email` quedan vacíos en reservas creadas antes del 5 de octubre de 2026.
 
 ## 2. Interacción: crear reserva sin sobreventa
 
@@ -68,12 +73,12 @@ sequenceDiagram
     participant H as Handler
     participant R as create_reservation
     participant D as SQLite
-    U->>V: Completar hotel y fechas
+    U->>V: Completar hotel, fechas, personas y contacto
     V->>H: POST /api/reservations
     H->>D: Verificar sesión
     D-->>H: Usuario autorizado
     H->>R: Datos y usuario
-    R->>R: Validar rol, fechas y hotel de estación
+    R->>R: Validar rol, fechas, hotel de estación, personas (máx. 4) y contacto
     R->>D: BEGIN IMMEDIATE
     R->>D: Consultar noches ocupadas
     D-->>R: Habitaciones ocupadas
